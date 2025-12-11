@@ -106,7 +106,7 @@ const Index = () => {
               </TabsList>
 
               <TabsContent value="charts" className="mt-6">
-                <DataCharts data={filteredData} />
+                <DataCharts data={filteredData} selectedFields={filter.dataFieldNames} />
               </TabsContent>
 
               <TabsContent value="table" className="mt-6">

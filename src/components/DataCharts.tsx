@@ -4,17 +4,50 @@ import type { ParsedDataPoint } from '@/types/vehicleData';
 import { getTimeSeriesData, getFieldFrequency } from '@/lib/dataParser';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Battery, Gauge, Zap, Route } from 'lucide-react';
+import { Battery, Gauge, Zap, Route, TrendingUp } from 'lucide-react';
 
 interface DataChartsProps {
   data: ParsedDataPoint[];
+  selectedFields?: string[];
 }
 
-export function DataCharts({ data }: DataChartsProps) {
+// Vordefinierte Felder, die immer angezeigt werden
+const CORE_FIELDS = ['currentSOCInPct', 'cruisingRangeElectricInKm', 'chargePowerInKW', 'mileage'];
+
+// Farben für zusätzliche Charts
+const CHART_COLORS = [
+  'hsl(280, 70%, 55%)',
+  'hsl(200, 70%, 55%)',
+  'hsl(120, 60%, 45%)',
+  'hsl(30, 80%, 55%)',
+  'hsl(340, 70%, 55%)',
+  'hsl(60, 70%, 50%)',
+];
+
+export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
   const socData = useMemo(() => getTimeSeriesData(data, 'currentSOCInPct'), [data]);
   const rangeData = useMemo(() => getTimeSeriesData(data, 'cruisingRangeElectricInKm'), [data]);
   const powerData = useMemo(() => getTimeSeriesData(data, 'chargePowerInKW'), [data]);
   const mileageData = useMemo(() => getTimeSeriesData(data, 'mileage'), [data]);
+
+  // Zusätzliche numerische Felder aus der Auswahl (ohne Kernfelder)
+  const additionalNumericFields = useMemo(() => {
+    return selectedFields.filter(field => {
+      if (CORE_FIELDS.includes(field)) return false;
+      // Prüfen ob das Feld numerische Daten hat
+      const fieldData = data.filter(d => d.dataFieldName === field && typeof d.value === 'number');
+      return fieldData.length > 0;
+    });
+  }, [selectedFields, data]);
+
+  // Daten für zusätzliche Charts
+  const additionalChartsData = useMemo(() => {
+    return additionalNumericFields.map((field, index) => ({
+      field,
+      data: getTimeSeriesData(data, field),
+      color: CHART_COLORS[index % CHART_COLORS.length],
+    }));
+  }, [additionalNumericFields, data]);
 
   const fieldFrequency = useMemo(() => {
     const freq = getFieldFrequency(data);
@@ -241,6 +274,54 @@ export function DataCharts({ data }: DataChartsProps) {
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
+
+        {/* Dynamic Charts for Additional Selected Fields */}
+        {additionalChartsData.map(({ field, data: chartData, color }, index) => (
+          <ChartCard 
+            key={field} 
+            title={field} 
+            subtitle={`${chartData.length} Datenpunkte`}
+          >
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={color} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
+                <XAxis 
+                  dataKey="timestamp" 
+                  tickFormatter={formatTimestamp}
+                  stroke="hsl(220, 10%, 55%)"
+                  fontSize={11}
+                />
+                <YAxis 
+                  stroke="hsl(220, 10%, 55%)"
+                  fontSize={11}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(220, 15%, 16%)', 
+                    border: '1px solid hsl(220, 12%, 25%)',
+                    borderRadius: '8px',
+                    color: 'hsl(220, 10%, 92%)'
+                  }}
+                  labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
+                  formatter={(value: number) => [value.toLocaleString('de-DE'), field]}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke={color} 
+                  fill={`url(#gradient-${index})`}
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        ))}
       </div>
     </div>
   );
