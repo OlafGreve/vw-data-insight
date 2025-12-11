@@ -5,14 +5,12 @@ import { getTimeSeriesData, getFieldFrequency } from '@/lib/dataParser';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Battery, Gauge, Zap, Route } from 'lucide-react';
-import { SelectedFieldStats } from './SelectedFieldStats';
 
 interface DataChartsProps {
   data: ParsedDataPoint[];
-  selectedFields?: string[];
 }
 
-export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
+export function DataCharts({ data }: DataChartsProps) {
   const socData = useMemo(() => getTimeSeriesData(data, 'currentSOCInPct'), [data]);
   const rangeData = useMemo(() => getTimeSeriesData(data, 'cruisingRangeElectricInKm'), [data]);
   const powerData = useMemo(() => getTimeSeriesData(data, 'chargePowerInKW'), [data]);
@@ -51,11 +49,6 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
 
   return (
     <div className="space-y-6">
-      {/* Selected Field Stats - shows when fields are selected */}
-      {selectedFields.length > 0 && (
-        <SelectedFieldStats data={data} selectedFields={selectedFields} />
-      )}
-
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
