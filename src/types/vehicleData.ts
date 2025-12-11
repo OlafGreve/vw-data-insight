@@ -18,6 +18,7 @@ export interface ParsedDataPoint {
   rawValue: string;
   timestampUtc: Date | null;
   category: string;
+  rowNumber: number;
 }
 
 export interface DataFilter {

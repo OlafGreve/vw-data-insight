@@ -134,7 +134,7 @@ export function DataTable({ data }: DataTableProps) {
                 style={{ animationDelay: `${idx * 10}ms` }}
               >
                 <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                  {page * pageSize + idx + 1}
+                  {row.rowNumber}
                 </td>
                 <td className="px-4 py-3">
                   <span className={cn('px-2 py-1 rounded-md text-xs font-medium', getCategoryColor(row.category))}>

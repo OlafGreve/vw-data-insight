@@ -8,6 +8,7 @@ export function parseVehicleData(data: VehicleDataFile): ParsedDataPoint[] {
     rawValue: entry.value,
     timestampUtc: entry.timestampUtc ? new Date(entry.timestampUtc) : null,
     category: extractCategory(entry.dataFieldName),
+    rowNumber: index + 1,
   }));
 }
 
