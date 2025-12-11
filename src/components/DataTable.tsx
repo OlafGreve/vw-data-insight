@@ -84,7 +84,6 @@ export function DataTable({ data }: DataTableProps) {
   };
 
   return (
-    <TooltipProvider delayDuration={100}>
     <div className="glass-card rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -152,23 +151,25 @@ export function DataTable({ data }: DataTableProps) {
                     const description = getFieldDescription(row.dataFieldName);
                     if (description) {
                       return (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="flex items-center gap-1 cursor-help">
-                              {row.dataFieldName}
-                              <Info className="w-3 h-3 opacity-50" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" align="start" sideOffset={8} className="max-w-sm">
-                            <p className="font-medium">{description.dataPointName}</p>
-                            {description.description && (
-                              <p className="text-xs text-muted-foreground mt-1">{description.description}</p>
-                            )}
-                            {description.unit && (
-                              <p className="text-xs mt-1">Einheit: {description.unit}</p>
-                            )}
-                          </TooltipContent>
-                        </Tooltip>
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center gap-1 cursor-help">
+                                {row.dataFieldName}
+                                <Info className="w-3 h-3 opacity-50" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" align="start" sideOffset={5} className="max-w-sm z-50">
+                              <p className="font-medium">{description.dataPointName}</p>
+                              {description.description && (
+                                <p className="text-xs text-muted-foreground mt-1">{description.description}</p>
+                              )}
+                              {description.unit && (
+                                <p className="text-xs mt-1">Einheit: {description.unit}</p>
+                              )}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       );
                     }
                     return row.dataFieldName;
@@ -221,6 +222,5 @@ export function DataTable({ data }: DataTableProps) {
         </div>
       </div>
     </div>
-    </TooltipProvider>
   );
 }
