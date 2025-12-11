@@ -1,17 +1,19 @@
 import { useState, useMemo, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart3, Table2, Upload } from 'lucide-react';
+import { BarChart3, Table2, Upload, TrendingUp } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { FileUpload } from '@/components/FileUpload';
 import { DataTable } from '@/components/DataTable';
 import { DataCharts } from '@/components/DataCharts';
 import { DataFilters } from '@/components/DataFilters';
-import { parseVehicleData, getFieldNamesByFrequency, filterData } from '@/lib/dataParser';
+import { getFieldNamesByFrequency, filterData } from '@/lib/dataParser';
 import { loadDataDictionary } from '@/lib/dataDictionary';
-import type { VehicleDataFile, ParsedDataPoint, DataFilter } from '@/types/vehicleData';
+import { useVehicleData } from '@/context/VehicleDataContext';
+import type { VehicleDataFile, DataFilter } from '@/types/vehicleData';
 
 const Index = () => {
-  const [rawData, setRawData] = useState<VehicleDataFile | null>(null);
+  const { rawData, parsedData, setRawData } = useVehicleData();
   const [filter, setFilter] = useState<DataFilter>({
     dataFieldNames: [],
     startDate: null,
@@ -22,11 +24,6 @@ const Index = () => {
   useEffect(() => {
     loadDataDictionary();
   }, []);
-
-  const parsedData = useMemo(() => {
-    if (!rawData) return [];
-    return parseVehicleData(rawData);
-  }, [rawData]);
 
   const filteredData = useMemo(() => {
     return filterData(parsedData, filter.dataFieldNames, filter.startDate, filter.endDate, filter.searchTerm);
@@ -114,8 +111,15 @@ const Index = () => {
               </TabsContent>
             </Tabs>
 
-            {/* Reset Button */}
-            <div className="text-center pt-4">
+            {/* Navigation & Reset */}
+            <div className="flex items-center justify-center gap-6 pt-4">
+              <Link
+                to="/statistics"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-sm font-medium"
+              >
+                <TrendingUp className="w-4 h-4" />
+                Fahrstatistik anzeigen
+              </Link>
               <button
                 onClick={() => setRawData(null)}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors underline"
