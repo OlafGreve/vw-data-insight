@@ -243,6 +243,51 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
           </ChartCard>
         )}
 
+        {/* Mileage Chart */}
+        {mileageData.length > 0 && (
+          <ChartCard title="Kilometerstand" subtitle="Fahrzeug-Kilometerstand über Zeit">
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={mileageData}>
+                <defs>
+                  <linearGradient id="mileageGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(270, 60%, 55%)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(270, 60%, 55%)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
+                <XAxis 
+                  dataKey="timestamp" 
+                  tickFormatter={formatTimestamp}
+                  stroke="hsl(220, 10%, 55%)"
+                  fontSize={11}
+                />
+                <YAxis 
+                  stroke="hsl(220, 10%, 55%)"
+                  fontSize={11}
+                  tickFormatter={(value) => value.toLocaleString('de-DE')}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(220, 15%, 16%)', 
+                    border: '1px solid hsl(220, 12%, 25%)',
+                    borderRadius: '8px',
+                    color: 'hsl(220, 10%, 92%)'
+                  }}
+                  labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
+                  formatter={(value: number) => [`${value.toLocaleString('de-DE')} km`, 'Kilometerstand']}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="hsl(270, 60%, 55%)" 
+                  fill="url(#mileageGradient)" 
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        )}
+
         {/* Field Frequency */}
         <ChartCard title="Häufigste Datenpunkte" subtitle="Top 10 Datenfelder nach Häufigkeit">
           <ResponsiveContainer width="100%" height={250}>
