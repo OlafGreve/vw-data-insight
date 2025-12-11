@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Info } from 'lucide-react';
 import type { ParsedDataPoint } from '@/types/vehicleData';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { getFieldDescription } from '@/lib/dataDictionary';
 
 interface DataTableProps {
   data: ParsedDataPoint[];
@@ -79,6 +81,7 @@ export function DataTable({ data }: DataTableProps) {
   };
 
   return (
+    <TooltipProvider>
     <div className="glass-card rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -131,7 +134,31 @@ export function DataTable({ data }: DataTableProps) {
                   </span>
                 </td>
                 <td className="px-4 py-3 font-mono text-sm text-moonstone-light">
-                  {row.dataFieldName}
+                  {(() => {
+                    const description = getFieldDescription(row.dataFieldName);
+                    if (description) {
+                      return (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="flex items-center gap-1 cursor-help">
+                              {row.dataFieldName}
+                              <Info className="w-3 h-3 opacity-50" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-sm">
+                            <p className="font-medium">{description.dataPointName}</p>
+                            {description.description && (
+                              <p className="text-xs text-muted-foreground mt-1">{description.description}</p>
+                            )}
+                            {description.unit && (
+                              <p className="text-xs mt-1">Einheit: {description.unit}</p>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    }
+                    return row.dataFieldName;
+                  })()}
                 </td>
                 <td className="px-4 py-3 font-mono text-sm">
                   <span className={cn(
@@ -180,5 +207,6 @@ export function DataTable({ data }: DataTableProps) {
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
