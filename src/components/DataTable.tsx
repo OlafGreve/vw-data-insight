@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Info } from 'lucide-react';
 import type { ParsedDataPoint } from '@/types/vehicleData';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -32,8 +32,8 @@ export function DataTable({ data }: DataTableProps) {
           comparison = String(a.rawValue).localeCompare(String(b.rawValue));
           break;
         case 'timestampUtc':
-          const aTime = a.timestampUtc?.getTime() ?? 0;
-          const bTime = b.timestampUtc?.getTime() ?? 0;
+          const aTime = a.timestampUtc && isValid(a.timestampUtc) ? a.timestampUtc.getTime() : 0;
+          const bTime = b.timestampUtc && isValid(b.timestampUtc) ? b.timestampUtc.getTime() : 0;
           comparison = aTime - bTime;
           break;
         case 'category':
@@ -170,7 +170,7 @@ export function DataTable({ data }: DataTableProps) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">
-                  {row.timestampUtc 
+                  {row.timestampUtc && isValid(row.timestampUtc)
                     ? format(row.timestampUtc, 'dd.MM.yyyy HH:mm:ss', { locale: de })
                     : '-'
                   }
