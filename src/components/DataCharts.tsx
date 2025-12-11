@@ -30,6 +30,44 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
   const powerData = useMemo(() => getTimeSeriesData(data, 'chargePowerInKW'), [data]);
   const mileageData = useMemo(() => getTimeSeriesData(data, 'mileage'), [data]);
 
+  // Berechne Kilometer pro Tag
+  const dailyMileageData = useMemo(() => {
+    if (mileageData.length === 0) return [];
+    
+    // Gruppiere nach Tag und finde min/max Kilometerstand pro Tag
+    const dailyStats: Record<string, { min: number; max: number; date: Date }> = {};
+    
+    mileageData.forEach(({ timestamp, value }) => {
+      const dateKey = format(timestamp, 'yyyy-MM-dd');
+      if (!dailyStats[dateKey]) {
+        dailyStats[dateKey] = { min: value, max: value, date: timestamp };
+      } else {
+        dailyStats[dateKey].min = Math.min(dailyStats[dateKey].min, value);
+        dailyStats[dateKey].max = Math.max(dailyStats[dateKey].max, value);
+      }
+    });
+    
+    // Sortiere nach Datum und berechne km pro Tag
+    const sortedDays = Object.entries(dailyStats)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([dateKey, stats]) => ({
+        date: stats.date,
+        dateKey,
+        kmDriven: stats.max - stats.min, // Innerhalb des Tages gefahrene km
+        maxMileage: stats.max,
+      }));
+    
+    // Berechne auch km zwischen Tagen (falls Auto über Nacht gefahren wurde)
+    return sortedDays.map((day, index) => {
+      if (index === 0) {
+        return { date: day.date, dateKey: day.dateKey, km: day.kmDriven };
+      }
+      const prevDay = sortedDays[index - 1];
+      const kmBetweenDays = day.maxMileage - prevDay.maxMileage;
+      return { date: day.date, dateKey: day.dateKey, km: Math.max(0, kmBetweenDays) };
+    });
+  }, [mileageData]);
+
   // Zusätzliche numerische Felder aus der Auswahl (ohne Kernfelder)
   const additionalNumericFields = useMemo(() => {
     return selectedFields.filter(field => {
@@ -243,21 +281,15 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
           </ChartCard>
         )}
 
-        {/* Mileage Chart */}
-        {mileageData.length > 0 && (
-          <ChartCard title="Kilometerstand" subtitle="Fahrzeug-Kilometerstand über Zeit">
+        {/* Daily Mileage Chart */}
+        {dailyMileageData.length > 0 && (
+          <ChartCard title="Kilometer pro Tag" subtitle="Täglich gefahrene Kilometer">
             <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={mileageData}>
-                <defs>
-                  <linearGradient id="mileageGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(270, 60%, 55%)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(270, 60%, 55%)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
+              <BarChart data={dailyMileageData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
                 <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={formatTimestamp}
+                  dataKey="date" 
+                  tickFormatter={(date) => format(new Date(date), 'dd.MM.', { locale: de })}
                   stroke="hsl(220, 10%, 55%)"
                   fontSize={11}
                 />
@@ -265,7 +297,6 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
                   stroke="hsl(220, 10%, 55%)"
                   fontSize={11}
                   tickFormatter={(value) => value.toLocaleString('de-DE')}
-                  domain={['dataMin', 'dataMax']}
                 />
                 <Tooltip 
                   contentStyle={{ 
@@ -274,17 +305,15 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
                     borderRadius: '8px',
                     color: 'hsl(220, 10%, 92%)'
                   }}
-                  labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
-                  formatter={(value: number) => [`${value.toLocaleString('de-DE')} km`, 'Kilometerstand']}
+                  labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy', { locale: de })}
+                  formatter={(value: number) => [`${value.toLocaleString('de-DE')} km`, 'Gefahren']}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="hsl(270, 60%, 55%)" 
-                  fill="url(#mileageGradient)" 
-                  strokeWidth={2}
+                <Bar 
+                  dataKey="km" 
+                  fill="hsl(270, 60%, 55%)" 
+                  radius={[4, 4, 0, 0]}
                 />
-              </AreaChart>
+              </BarChart>
             </ResponsiveContainer>
           </ChartCard>
         )}
