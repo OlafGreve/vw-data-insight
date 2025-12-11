@@ -11,7 +11,7 @@ interface DataTableProps {
   data: ParsedDataPoint[];
 }
 
-type SortField = 'dataFieldName' | 'value' | 'timestampUtc' | 'category';
+type SortField = 'key' | 'dataFieldName' | 'value' | 'timestampUtc' | 'category';
 type SortDirection = 'asc' | 'desc';
 
 export function DataTable({ data }: DataTableProps) {
@@ -25,6 +25,9 @@ export function DataTable({ data }: DataTableProps) {
       let comparison = 0;
       
       switch (sortField) {
+        case 'key':
+          comparison = a.key.localeCompare(b.key);
+          break;
         case 'dataFieldName':
           comparison = a.dataFieldName.localeCompare(b.dataFieldName);
           break;
@@ -89,6 +92,14 @@ export function DataTable({ data }: DataTableProps) {
             <tr className="border-b border-border bg-secondary/50">
               <th 
                 className="px-4 py-3 text-left cursor-pointer hover:bg-secondary/80 transition-colors"
+                onClick={() => handleSort('key')}
+              >
+                <div className="flex items-center gap-2 font-display font-medium text-sm">
+                  Nr. <SortIcon field="key" />
+                </div>
+              </th>
+              <th 
+                className="px-4 py-3 text-left cursor-pointer hover:bg-secondary/80 transition-colors"
                 onClick={() => handleSort('category')}
               >
                 <div className="flex items-center gap-2 font-display font-medium text-sm">
@@ -128,6 +139,9 @@ export function DataTable({ data }: DataTableProps) {
                 className="border-b border-border/50 hover:bg-secondary/30 transition-colors animate-fade-in"
                 style={{ animationDelay: `${idx * 10}ms` }}
               >
+                <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                  {row.key}
+                </td>
                 <td className="px-4 py-3">
                   <span className={cn('px-2 py-1 rounded-md text-xs font-medium', getCategoryColor(row.category))}>
                     {row.category}
