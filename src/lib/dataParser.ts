@@ -100,3 +100,138 @@ export function getTimeSeriesData(
     }))
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 }
+
+export function getStatistics(
+  data: ParsedDataPoint[],
+  fieldName: string
+): import('@/types/vehicleData').FieldStatistics | null {
+  const timeSeriesData = getTimeSeriesData(data, fieldName);
+  if (timeSeriesData.length === 0) return null;
+
+  const values = timeSeriesData.map(d => d.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const sum = values.reduce((a, b) => a + b, 0);
+  const average = sum / values.length;
+  
+  const squaredDiffs = values.map(v => Math.pow(v - average, 2));
+  const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
+  const stdDev = Math.sqrt(avgSquaredDiff);
+
+  const first = timeSeriesData[0];
+  const last = timeSeriesData[timeSeriesData.length - 1];
+  const totalDelta = last.value - first.value;
+
+  // Get mileage data for correlation
+  const mileageData = getTimeSeriesData(data, 'mileage');
+  const findNearestMileage = (timestamp: Date): number | undefined => {
+    if (mileageData.length === 0) return undefined;
+    let nearest = mileageData[0];
+    let minDiff = Math.abs(timestamp.getTime() - nearest.timestamp.getTime());
+    for (const m of mileageData) {
+      const diff = Math.abs(timestamp.getTime() - m.timestamp.getTime());
+      if (diff < minDiff) {
+        minDiff = diff;
+        nearest = m;
+      }
+    }
+    return nearest.value;
+  };
+
+  const firstMileage = findNearestMileage(first.timestamp);
+  const lastMileage = findNearestMileage(last.timestamp);
+  const deltaPerKm = firstMileage !== undefined && lastMileage !== undefined && lastMileage !== firstMileage
+    ? totalDelta / (lastMileage - firstMileage)
+    : undefined;
+
+  return {
+    fieldName,
+    min,
+    max,
+    average,
+    count: values.length,
+    stdDev,
+    firstValue: { value: first.value, timestamp: first.timestamp, mileage: firstMileage },
+    lastValue: { value: last.value, timestamp: last.timestamp, mileage: lastMileage },
+    totalDelta,
+    deltaPerKm,
+  };
+}
+
+export function getMileageCorrelatedData(
+  data: ParsedDataPoint[],
+  fieldName: string
+): import('@/types/vehicleData').MileageCorrelatedPoint[] {
+  const timeSeriesData = getTimeSeriesData(data, fieldName);
+  const mileageData = getTimeSeriesData(data, 'mileage');
+  
+  if (timeSeriesData.length === 0 || mileageData.length === 0) return [];
+
+  return timeSeriesData.map(point => {
+    let nearestMileage = mileageData[0];
+    let minDiff = Math.abs(point.timestamp.getTime() - nearestMileage.timestamp.getTime());
+    
+    for (const m of mileageData) {
+      const diff = Math.abs(point.timestamp.getTime() - m.timestamp.getTime());
+      if (diff < minDiff) {
+        minDiff = diff;
+        nearestMileage = m;
+      }
+    }
+
+    return {
+      timestamp: point.timestamp,
+      value: point.value,
+      mileage: nearestMileage.value,
+    };
+  }).sort((a, b) => a.mileage - b.mileage);
+}
+
+export function calculateDeltas(
+  data: ParsedDataPoint[],
+  fieldName: string
+): import('@/types/vehicleData').DeltaDataPoint[] {
+  const timeSeriesData = getTimeSeriesData(data, fieldName);
+  const mileageData = getTimeSeriesData(data, 'mileage');
+  
+  if (timeSeriesData.length < 2) return [];
+
+  const findNearestMileage = (timestamp: Date): number | undefined => {
+    if (mileageData.length === 0) return undefined;
+    let nearest = mileageData[0];
+    let minDiff = Math.abs(timestamp.getTime() - nearest.timestamp.getTime());
+    for (const m of mileageData) {
+      const diff = Math.abs(timestamp.getTime() - m.timestamp.getTime());
+      if (diff < minDiff) {
+        minDiff = diff;
+        nearest = m;
+      }
+    }
+    return nearest.value;
+  };
+
+  const result: import('@/types/vehicleData').DeltaDataPoint[] = [];
+  
+  for (let i = 1; i < timeSeriesData.length; i++) {
+    const prev = timeSeriesData[i - 1];
+    const curr = timeSeriesData[i];
+    const delta = curr.value - prev.value;
+    
+    const prevMileage = findNearestMileage(prev.timestamp);
+    const currMileage = findNearestMileage(curr.timestamp);
+    
+    const deltaPerKm = prevMileage !== undefined && currMileage !== undefined && currMileage !== prevMileage
+      ? delta / (currMileage - prevMileage)
+      : undefined;
+
+    result.push({
+      timestamp: curr.timestamp,
+      value: curr.value,
+      delta,
+      mileage: currMileage,
+      deltaPerKm,
+    });
+  }
+
+  return result;
+}

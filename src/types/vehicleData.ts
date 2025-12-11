@@ -45,3 +45,30 @@ export const IMPORTANT_FIELDS = [
 ] as const;
 
 export type ImportantField = typeof IMPORTANT_FIELDS[number];
+
+export interface FieldStatistics {
+  fieldName: string;
+  min: number;
+  max: number;
+  average: number;
+  count: number;
+  stdDev: number;
+  firstValue: { value: number; timestamp: Date; mileage?: number };
+  lastValue: { value: number; timestamp: Date; mileage?: number };
+  totalDelta: number;
+  deltaPerKm?: number;
+}
+
+export interface DeltaDataPoint {
+  timestamp: Date;
+  value: number;
+  delta: number;
+  mileage?: number;
+  deltaPerKm?: number;
+}
+
+export interface MileageCorrelatedPoint {
+  timestamp: Date;
+  value: number;
+  mileage: number;
+}
