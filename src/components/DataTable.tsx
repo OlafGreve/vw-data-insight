@@ -11,7 +11,7 @@ interface DataTableProps {
   data: ParsedDataPoint[];
 }
 
-type SortField = 'key' | 'dataFieldName' | 'value' | 'timestampUtc' | 'category';
+type SortField = 'dataFieldName' | 'value' | 'timestampUtc' | 'category';
 type SortDirection = 'asc' | 'desc';
 
 export function DataTable({ data }: DataTableProps) {
@@ -25,9 +25,6 @@ export function DataTable({ data }: DataTableProps) {
       let comparison = 0;
       
       switch (sortField) {
-        case 'key':
-          comparison = a.key.localeCompare(b.key);
-          break;
         case 'dataFieldName':
           comparison = a.dataFieldName.localeCompare(b.dataFieldName);
           break;
@@ -90,12 +87,9 @@ export function DataTable({ data }: DataTableProps) {
         <table className="w-full">
           <thead>
             <tr className="border-b border-border bg-secondary/50">
-              <th 
-                className="px-4 py-3 text-left cursor-pointer hover:bg-secondary/80 transition-colors"
-                onClick={() => handleSort('key')}
-              >
-                <div className="flex items-center gap-2 font-display font-medium text-sm">
-                  Nr. <SortIcon field="key" />
+              <th className="px-4 py-3 text-left">
+                <div className="font-display font-medium text-sm">
+                  Nr.
                 </div>
               </th>
               <th 
@@ -140,7 +134,7 @@ export function DataTable({ data }: DataTableProps) {
                 style={{ animationDelay: `${idx * 10}ms` }}
               >
                 <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                  {row.key}
+                  {page * pageSize + idx + 1}
                 </td>
                 <td className="px-4 py-3">
                   <span className={cn('px-2 py-1 rounded-md text-xs font-medium', getCategoryColor(row.category))}>
