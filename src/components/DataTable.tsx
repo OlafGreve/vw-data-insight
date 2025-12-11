@@ -5,7 +5,7 @@ import { format, isValid } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { getFieldDescription } from '@/lib/dataDictionary';
+import { getFieldDescription, getFieldDescriptionByKey } from '@/lib/dataDictionary';
 
 interface DataTableProps {
   data: ParsedDataPoint[];
@@ -148,7 +148,7 @@ export function DataTable({ data }: DataTableProps) {
                 </td>
                 <td className="px-4 py-3 font-mono text-sm text-moonstone-light">
                   {(() => {
-                    const description = getFieldDescription(row.dataFieldName);
+                    const description = getFieldDescriptionByKey(row.key) || getFieldDescription(row.dataFieldName);
                     if (description) {
                       return (
                         <TooltipProvider delayDuration={100}>
