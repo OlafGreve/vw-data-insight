@@ -265,6 +265,7 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
                   stroke="hsl(220, 10%, 55%)"
                   fontSize={11}
                   tickFormatter={(value) => value.toLocaleString('de-DE')}
+                  domain={['dataMin', 'dataMax']}
                 />
                 <Tooltip 
                   contentStyle={{ 
