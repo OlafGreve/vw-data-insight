@@ -56,7 +56,7 @@ const Index = () => {
                 <span className="text-gradient">Willkommen</span>
               </h2>
               <p className="text-muted-foreground max-w-md mx-auto">
-                Laden Sie Ihre VW Fahrzeugdaten hoch, um detaillierte Analysen und Visualisierungen zu erhalten.
+                Lade deine VW Fahrzeugdaten hoch, um detaillierte Analysen und Visualisierungen zu erhalten.
               </p>
             </div>
             <FileUpload onDataLoaded={handleDataLoaded} />
@@ -65,7 +65,7 @@ const Index = () => {
               <FeatureCard 
                 icon={Upload} 
                 title="ZIP Upload" 
-                description="Einfaches Hochladen Ihrer Daten"
+                description="Einfaches Hochladen deiner Daten"
               />
               <FeatureCard 
                 icon={Table2} 
