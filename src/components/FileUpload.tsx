@@ -71,7 +71,7 @@ export function FileUpload({ onDataLoaded }: FileUploadProps) {
     } else if (file.name.endsWith('.json')) {
       await processJsonFile(file);
     } else {
-      setError('Bitte laden Sie eine ZIP- oder JSON-Datei hoch');
+      setError('Bitte lade eine ZIP- oder JSON-Datei hoch');
       setUploadState('error');
     }
   };
