@@ -1,11 +1,13 @@
-import { Search, Filter, X, Check } from 'lucide-react';
+import { Search, Filter, X, Check, Info } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { DataFilter } from '@/types/vehicleData';
 import { cn } from '@/lib/utils';
+import { getFieldDescription } from '@/lib/dataDictionary';
 
 interface DataFiltersProps {
   filter: DataFilter;
@@ -95,25 +97,35 @@ export function DataFilters({ filter, onFilterChange, fieldsWithFrequency }: Dat
               <CommandList>
                 <CommandEmpty>Kein Datenfeld gefunden.</CommandEmpty>
                 <CommandGroup className="max-h-64 overflow-auto">
-                  {fieldsWithFrequency.map(({ name, count }) => (
-                    <CommandItem
-                      key={name}
-                      value={name}
-                      onSelect={() => toggleField(name)}
-                      className="cursor-pointer"
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          filter.dataFieldNames.includes(name) ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      <span className="flex-1 truncate">{name}</span>
-                      <Badge variant="secondary" className="ml-2 text-xs">
-                        {count}
-                      </Badge>
-                    </CommandItem>
-                  ))}
+                  {fieldsWithFrequency.map(({ name, count }) => {
+                    const description = getFieldDescription(name);
+                    return (
+                      <CommandItem
+                        key={name}
+                        value={name}
+                        onSelect={() => toggleField(name)}
+                        className="cursor-pointer"
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4 flex-shrink-0",
+                            filter.dataFieldNames.includes(name) ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="block truncate">{name}</span>
+                          {description && (
+                            <span className="block text-xs text-muted-foreground truncate">
+                              {description.description || description.unit}
+                            </span>
+                          )}
+                        </div>
+                        <Badge variant="secondary" className="ml-2 text-xs flex-shrink-0">
+                          {count}
+                        </Badge>
+                      </CommandItem>
+                    );
+                  })}
                 </CommandGroup>
               </CommandList>
             </Command>
@@ -147,23 +159,43 @@ export function DataFilters({ filter, onFilterChange, fieldsWithFrequency }: Dat
 
       {/* Selected Fields Badges */}
       {filter.dataFieldNames.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {filter.dataFieldNames.map(field => (
-            <Badge
-              key={field}
-              variant="secondary"
-              className="pl-2 pr-1 py-1 bg-primary/10 text-primary border-primary/20"
-            >
-              {field}
-              <button
-                onClick={() => removeField(field)}
-                className="ml-1 p-0.5 rounded-full hover:bg-primary/20 transition-colors"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </Badge>
-          ))}
-        </div>
+        <TooltipProvider>
+          <div className="flex flex-wrap gap-2">
+            {filter.dataFieldNames.map(field => {
+              const description = getFieldDescription(field);
+              return (
+                <Tooltip key={field}>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="secondary"
+                      className="pl-2 pr-1 py-1 bg-primary/10 text-primary border-primary/20 cursor-help"
+                    >
+                      {field}
+                      {description && <Info className="w-3 h-3 ml-1 opacity-50" />}
+                      <button
+                        onClick={() => removeField(field)}
+                        className="ml-1 p-0.5 rounded-full hover:bg-primary/20 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  </TooltipTrigger>
+                  {description && (
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <p className="font-medium">{description.dataPointName}</p>
+                      {description.description && (
+                        <p className="text-xs text-muted-foreground mt-1">{description.description}</p>
+                      )}
+                      {description.unit && (
+                        <p className="text-xs mt-1">Einheit: {description.unit}</p>
+                      )}
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              );
+            })}
+          </div>
+        </TooltipProvider>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart3, Table2, Upload } from 'lucide-react';
 import { Header } from '@/components/Header';
@@ -7,6 +7,7 @@ import { DataTable } from '@/components/DataTable';
 import { DataCharts } from '@/components/DataCharts';
 import { DataFilters } from '@/components/DataFilters';
 import { parseVehicleData, getFieldNamesByFrequency, filterData } from '@/lib/dataParser';
+import { loadDataDictionary } from '@/lib/dataDictionary';
 import type { VehicleDataFile, ParsedDataPoint, DataFilter } from '@/types/vehicleData';
 
 const Index = () => {
@@ -17,6 +18,10 @@ const Index = () => {
     endDate: null,
     searchTerm: '',
   });
+
+  useEffect(() => {
+    loadDataDictionary();
+  }, []);
 
   const parsedData = useMemo(() => {
     if (!rawData) return [];
