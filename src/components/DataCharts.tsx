@@ -318,38 +318,6 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
           </ChartCard>
         )}
 
-        {/* Field Frequency */}
-        <ChartCard title="Häufigste Datenpunkte" subtitle="Top 10 Datenfelder nach Häufigkeit">
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={fieldFrequency} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
-              <XAxis type="number" stroke="hsl(220, 10%, 55%)" fontSize={11} />
-              <YAxis 
-                type="category" 
-                dataKey="name" 
-                width={140}
-                stroke="hsl(220, 10%, 55%)"
-                fontSize={10}
-                tick={{ fill: 'hsl(220, 10%, 75%)' }}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'hsl(220, 15%, 16%)', 
-                  border: '1px solid hsl(220, 12%, 25%)',
-                  borderRadius: '8px',
-                  color: 'hsl(220, 10%, 92%)'
-                }}
-                formatter={(value: number) => [value.toLocaleString('de-DE'), 'Anzahl']}
-              />
-              <Bar 
-                dataKey="count" 
-                fill="hsl(185, 70%, 50%)" 
-                radius={[0, 4, 4, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
         {/* Dynamic Charts for Additional Selected Fields */}
         {additionalChartsData.map(({ field, data: chartData, color }, index) => (
           <ChartCard 
@@ -397,6 +365,38 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
             </ResponsiveContainer>
           </ChartCard>
         ))}
+
+        {/* Field Frequency - Always Last */}
+        <ChartCard title="Häufigste Datenpunkte" subtitle="Top 10 Datenfelder nach Häufigkeit">
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={fieldFrequency} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
+              <XAxis type="number" stroke="hsl(220, 10%, 55%)" fontSize={11} />
+              <YAxis 
+                type="category" 
+                dataKey="name" 
+                width={140}
+                stroke="hsl(220, 10%, 55%)"
+                fontSize={10}
+                tick={{ fill: 'hsl(220, 10%, 75%)' }}
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'hsl(220, 15%, 16%)', 
+                  border: '1px solid hsl(220, 12%, 25%)',
+                  borderRadius: '8px',
+                  color: 'hsl(220, 10%, 92%)'
+                }}
+                formatter={(value: number) => [value.toLocaleString('de-DE'), 'Anzahl']}
+              />
+              <Bar 
+                dataKey="count" 
+                fill="hsl(185, 70%, 50%)" 
+                radius={[0, 4, 4, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
       </div>
     </div>
   );
