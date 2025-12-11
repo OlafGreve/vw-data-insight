@@ -6,11 +6,12 @@ import { cn } from '@/lib/utils';
 
 interface FileUploadProps {
   onDataLoaded: (data: VehicleDataFile) => void;
+  compact?: boolean;
 }
 
 type UploadState = 'idle' | 'loading' | 'success' | 'error';
 
-export function FileUpload({ onDataLoaded }: FileUploadProps) {
+export function FileUpload({ onDataLoaded, compact = false }: FileUploadProps) {
   const [uploadState, setUploadState] = useState<UploadState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -97,6 +98,66 @@ export function FileUpload({ onDataLoaded }: FileUploadProps) {
     const file = e.target.files?.[0];
     if (file) handleFile(file);
   };
+
+  if (compact) {
+    return (
+      <div
+        className={cn(
+          'relative rounded-lg border border-dashed transition-all duration-300',
+          'p-3 text-center cursor-pointer',
+          isDragOver 
+            ? 'border-primary bg-primary/10' 
+            : 'border-border hover:border-primary/50 hover:bg-secondary/30',
+          uploadState === 'success' && 'border-success bg-success/10',
+          uploadState === 'error' && 'border-destructive bg-destructive/10'
+        )}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onClick={() => document.getElementById('file-input-compact')?.click()}
+      >
+        <input
+          id="file-input-compact"
+          type="file"
+          accept=".zip,.json"
+          className="hidden"
+          onChange={handleInputChange}
+        />
+
+        <div className="flex items-center justify-center gap-3">
+          {uploadState === 'idle' && (
+            <>
+              <FileArchive className="w-5 h-5 text-primary shrink-0" />
+              <span className="text-sm text-muted-foreground">
+                ZIP oder JSON hierher ziehen oder klicken
+              </span>
+            </>
+          )}
+
+          {uploadState === 'loading' && (
+            <>
+              <Upload className="w-5 h-5 text-primary animate-bounce shrink-0" />
+              <span className="text-sm text-muted-foreground">Wird verarbeitet...</span>
+            </>
+          )}
+
+          {uploadState === 'success' && (
+            <>
+              <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
+              <span className="text-sm text-success">Daten geladen!</span>
+            </>
+          )}
+
+          {uploadState === 'error' && (
+            <>
+              <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
+              <span className="text-sm text-destructive">{error}</span>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

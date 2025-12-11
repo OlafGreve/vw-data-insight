@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart3, Table2, Upload, ExternalLink } from 'lucide-react';
+import { BarChart3, Table2, ExternalLink } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { FileUpload } from '@/components/FileUpload';
 import { DataTable } from '@/components/DataTable';
@@ -9,7 +9,7 @@ import { DataFilters } from '@/components/DataFilters';
 import { parseVehicleData, getFieldNamesByFrequency, filterData } from '@/lib/dataParser';
 import { loadDataDictionary } from '@/lib/dataDictionary';
 import type { VehicleDataFile, ParsedDataPoint, DataFilter } from '@/types/vehicleData';
-import forestRoad from '@/assets/forest-road.jpg';
+import forestRoadBeetle from '@/assets/forest-road-beetle.jpg';
 
 const Index = () => {
   const [rawData, setRawData] = useState<VehicleDataFile | null>(null);
@@ -51,67 +51,57 @@ const Index = () => {
 
       <main>
         {!rawData ? (
-          <>
-            {/* Hero Section with Background Image */}
-            <section 
-              className="relative min-h-[70vh] flex items-center justify-start bg-cover bg-center bg-no-repeat"
-              style={{ backgroundImage: `url(${forestRoad})` }}
-            >
-              {/* Dark overlay */}
-              <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/70 to-transparent" />
-              
-              <div className="relative z-10 container mx-auto px-4 py-16">
-                <div className="max-w-2xl">
-                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold mb-6 text-primary leading-tight">
-                    VW Fahrzeugdaten Analyse
-                  </h1>
-                  <p className="text-lg md:text-xl text-foreground/90 mb-4 leading-relaxed">
-                    Analysiere und visualisiere deine Volkswagen Fahrzeugdaten nach dem EU Data Act.
-                  </p>
-                  <p className="text-muted-foreground mb-8">
-                    Lade deine VW Fahrzeugdaten hoch, um detaillierte Analysen und Visualisierungen zu erhalten.
-                  </p>
+          <section 
+            className="relative min-h-[calc(100vh-4rem)] flex items-center bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(${forestRoadBeetle})` }}
+          >
+            {/* Dark overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-background/40" />
+            
+            <div className="relative z-10 container mx-auto px-4 py-8">
+              <div className="max-w-xl">
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold mb-4 text-primary leading-tight">
+                  VW Fahrzeugdaten Analyse
+                </h1>
+                <p className="text-base md:text-lg text-foreground/90 mb-6 leading-relaxed">
+                  Analysiere und visualisiere deine Volkswagen Fahrzeugdaten nach dem EU Data Act.
+                </p>
+                
+                {/* Combined Action Box */}
+                <div className="bg-card/90 backdrop-blur-sm border border-border/50 rounded-lg p-5 space-y-4">
+                  <div className="flex items-start gap-3">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold shrink-0">1</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Fordere deine Daten beim VW EU Data Act Portal an:
+                      </p>
+                      <a
+                        href="https://eu-data-act.drivesomethinggreater.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium text-sm transition-colors"
+                      >
+                        eu-data-act.drivesomethinggreater.com
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  </div>
                   
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <a
-                      href="https://eu-data-act.drivesomethinggreater.com/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors"
-                    >
-                      Daten anfordern
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
+                  <div className="border-t border-border/50" />
+                  
+                  <div className="flex items-start gap-3">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold shrink-0">2</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Lade die erhaltene ZIP-Datei hier hoch:
+                      </p>
+                      <FileUpload onDataLoaded={handleDataLoaded} compact />
+                    </div>
                   </div>
                 </div>
               </div>
-            </section>
-
-            {/* Upload Section */}
-            <section className="container mx-auto px-4 py-12">
-              <div className="max-w-2xl mx-auto">
-                <FileUpload onDataLoaded={handleDataLoaded} />
-                
-                <div className="mt-12 grid sm:grid-cols-3 gap-6">
-                  <FeatureCard 
-                    icon={Upload} 
-                    title="ZIP Upload" 
-                    description="Einfaches Hochladen deiner Daten"
-                  />
-                  <FeatureCard 
-                    icon={Table2} 
-                    title="Tabellen" 
-                    description="Sortierbare Datenansicht"
-                  />
-                  <FeatureCard 
-                    icon={BarChart3} 
-                    title="Charts" 
-                    description="Interaktive Visualisierungen"
-                  />
-                </div>
-              </div>
-            </section>
-          </>
+            </div>
+          </section>
         ) : (
           <div className="container mx-auto px-4 py-6 space-y-6 animate-slide-up">
             <DataFilters 
@@ -162,21 +152,5 @@ const Index = () => {
     </div>
   );
 };
-
-interface FeatureCardProps {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-}
-
-function FeatureCard({ icon: Icon, title, description }: FeatureCardProps) {
-  return (
-    <div className="p-6 rounded-lg bg-card border border-border/50 hover:border-primary/30 transition-colors">
-      <Icon className="w-8 h-8 text-primary mb-3" />
-      <h3 className="font-display font-semibold text-foreground mb-1">{title}</h3>
-      <p className="text-sm text-muted-foreground">{description}</p>
-    </div>
-  );
-}
 
 export default Index;
