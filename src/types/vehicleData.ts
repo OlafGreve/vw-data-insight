@@ -21,7 +21,7 @@ export interface ParsedDataPoint {
 }
 
 export interface DataFilter {
-  dataFieldName: string | null;
+  dataFieldNames: string[];
   startDate: Date | null;
   endDate: Date | null;
   searchTerm: string;

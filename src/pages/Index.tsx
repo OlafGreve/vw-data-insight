@@ -6,13 +6,13 @@ import { FileUpload } from '@/components/FileUpload';
 import { DataTable } from '@/components/DataTable';
 import { DataCharts } from '@/components/DataCharts';
 import { DataFilters } from '@/components/DataFilters';
-import { parseVehicleData, getUniqueFieldNames, filterData } from '@/lib/dataParser';
+import { parseVehicleData, getFieldNamesByFrequency, filterData } from '@/lib/dataParser';
 import type { VehicleDataFile, ParsedDataPoint, DataFilter } from '@/types/vehicleData';
 
 const Index = () => {
   const [rawData, setRawData] = useState<VehicleDataFile | null>(null);
   const [filter, setFilter] = useState<DataFilter>({
-    dataFieldName: null,
+    dataFieldNames: [],
     startDate: null,
     endDate: null,
     searchTerm: '',
@@ -24,15 +24,15 @@ const Index = () => {
   }, [rawData]);
 
   const filteredData = useMemo(() => {
-    return filterData(parsedData, filter.dataFieldName, filter.startDate, filter.endDate, filter.searchTerm);
+    return filterData(parsedData, filter.dataFieldNames, filter.startDate, filter.endDate, filter.searchTerm);
   }, [parsedData, filter]);
 
-  const availableFields = useMemo(() => getUniqueFieldNames(parsedData), [parsedData]);
+  const fieldsWithFrequency = useMemo(() => getFieldNamesByFrequency(parsedData), [parsedData]);
 
   const handleDataLoaded = (data: VehicleDataFile) => {
     setRawData(data);
     setFilter({
-      dataFieldName: null,
+      dataFieldNames: [],
       startDate: null,
       endDate: null,
       searchTerm: '',
@@ -79,7 +79,7 @@ const Index = () => {
             <DataFilters 
               filter={filter}
               onFilterChange={setFilter}
-              availableFields={availableFields}
+              fieldsWithFrequency={fieldsWithFrequency}
             />
 
             <Tabs defaultValue="charts" className="w-full">

@@ -50,9 +50,11 @@ function parseValue(value: string): string | number | boolean | null {
   return value;
 }
 
-export function getUniqueFieldNames(data: ParsedDataPoint[]): string[] {
-  const fieldNames = new Set(data.map(d => d.dataFieldName));
-  return Array.from(fieldNames).sort();
+export function getFieldNamesByFrequency(data: ParsedDataPoint[]): { name: string; count: number }[] {
+  const frequency = getFieldFrequency(data);
+  return Array.from(frequency.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
 }
 
 export function getFieldFrequency(data: ParsedDataPoint[]): Map<string, number> {
@@ -65,13 +67,13 @@ export function getFieldFrequency(data: ParsedDataPoint[]): Map<string, number> 
 
 export function filterData(
   data: ParsedDataPoint[],
-  fieldName: string | null,
+  fieldNames: string[],
   startDate: Date | null,
   endDate: Date | null,
   searchTerm: string
 ): ParsedDataPoint[] {
   return data.filter(d => {
-    if (fieldName && d.dataFieldName !== fieldName) return false;
+    if (fieldNames.length > 0 && !fieldNames.includes(d.dataFieldName)) return false;
     if (startDate && d.timestampUtc && d.timestampUtc < startDate) return false;
     if (endDate && d.timestampUtc && d.timestampUtc > endDate) return false;
     if (searchTerm) {
