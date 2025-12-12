@@ -68,7 +68,7 @@ const Index = () => {
                 </p>
 
                 {/* Combined Action Box */}
-                <div className="bg-card/30 backdrop-blur-md border border-border/50 rounded-lg p-5 space-y-4">
+                <div className="bg-card/20 backdrop-blur-md border border-border/50 rounded-lg p-5 space-y-4">
                   <div className="flex items-start gap-3">
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold shrink-0">
                       1
