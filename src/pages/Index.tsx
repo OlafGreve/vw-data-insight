@@ -1,15 +1,15 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart3, Table2, ExternalLink } from 'lucide-react';
-import { Header } from '@/components/Header';
-import { FileUpload } from '@/components/FileUpload';
-import { DataTable } from '@/components/DataTable';
-import { DataCharts } from '@/components/DataCharts';
-import { DataFilters } from '@/components/DataFilters';
-import { parseVehicleData, getFieldNamesByFrequency, filterData } from '@/lib/dataParser';
-import { loadDataDictionary } from '@/lib/dataDictionary';
-import type { VehicleDataFile, ParsedDataPoint, DataFilter } from '@/types/vehicleData';
-import forestRoadBeetle from '@/assets/forest-road-beetle.jpg';
+import { useState, useMemo, useEffect } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BarChart3, Table2, ExternalLink } from "lucide-react";
+import { Header } from "@/components/Header";
+import { FileUpload } from "@/components/FileUpload";
+import { DataTable } from "@/components/DataTable";
+import { DataCharts } from "@/components/DataCharts";
+import { DataFilters } from "@/components/DataFilters";
+import { parseVehicleData, getFieldNamesByFrequency, filterData } from "@/lib/dataParser";
+import { loadDataDictionary } from "@/lib/dataDictionary";
+import type { VehicleDataFile, ParsedDataPoint, DataFilter } from "@/types/vehicleData";
+import forestRoadBeetle from "@/assets/forest-road-beetle.jpg";
 
 const Index = () => {
   const [rawData, setRawData] = useState<VehicleDataFile | null>(null);
@@ -17,7 +17,7 @@ const Index = () => {
     dataFieldNames: [],
     startDate: null,
     endDate: null,
-    searchTerm: '',
+    searchTerm: "",
   });
 
   useEffect(() => {
@@ -41,7 +41,7 @@ const Index = () => {
       dataFieldNames: [],
       startDate: null,
       endDate: null,
-      searchTerm: '',
+      searchTerm: "",
     });
   };
 
@@ -51,13 +51,13 @@ const Index = () => {
 
       <main>
         {!rawData ? (
-          <section 
+          <section
             className="relative min-h-[calc(100vh-4rem)] flex items-center bg-cover bg-center bg-no-repeat"
             style={{ backgroundImage: `url(${forestRoadBeetle})` }}
           >
             {/* Dark overlay */}
             <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-background/40" />
-            
+
             <div className="relative z-10 container mx-auto px-4 py-8">
               <div className="max-w-xl">
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold mb-4 text-primary leading-tight">
@@ -66,11 +66,13 @@ const Index = () => {
                 <p className="text-base md:text-lg text-foreground/90 mb-6 leading-relaxed">
                   Analysiere und visualisiere deine Volkswagen Fahrzeugdaten nach dem EU Data Act.
                 </p>
-                
+
                 {/* Combined Action Box */}
-                <div className="bg-card/70 backdrop-blur-md border border-border/50 rounded-lg p-5 space-y-4">
+                <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-lg p-5 space-y-4">
                   <div className="flex items-start gap-3">
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold shrink-0">1</span>
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold shrink-0">
+                      1
+                    </span>
                     <div className="flex-1">
                       <p className="text-sm text-muted-foreground mb-2">
                         Fordere deine Daten beim VW EU Data Act Portal an:
@@ -86,15 +88,15 @@ const Index = () => {
                       </a>
                     </div>
                   </div>
-                  
+
                   <div className="border-t border-border/50" />
-                  
+
                   <div className="flex items-start gap-3">
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold shrink-0">2</span>
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold shrink-0">
+                      2
+                    </span>
                     <div className="flex-1">
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Lade die erhaltene ZIP-Datei hier hoch:
-                      </p>
+                      <p className="text-sm text-muted-foreground mb-3">Lade die erhaltene ZIP-Datei hier hoch:</p>
                       <FileUpload onDataLoaded={handleDataLoaded} compact />
                     </div>
                   </div>
@@ -104,22 +106,18 @@ const Index = () => {
           </section>
         ) : (
           <div className="container mx-auto px-4 py-6 space-y-6 animate-slide-up">
-            <DataFilters 
-              filter={filter}
-              onFilterChange={setFilter}
-              fieldsWithFrequency={fieldsWithFrequency}
-            />
+            <DataFilters filter={filter} onFilterChange={setFilter} fieldsWithFrequency={fieldsWithFrequency} />
 
             <Tabs defaultValue="charts" className="w-full">
               <TabsList className="bg-secondary/50 p-1">
-                <TabsTrigger 
-                  value="charts" 
+                <TabsTrigger
+                  value="charts"
                   className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
                   <BarChart3 className="w-4 h-4 mr-2" />
                   Diagramme
                 </TabsTrigger>
-                <TabsTrigger 
+                <TabsTrigger
                   value="table"
                   className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
