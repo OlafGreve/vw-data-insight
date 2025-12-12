@@ -48,7 +48,7 @@ const Index = () => {
             {/* Dark overlay */}
             <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-background/40" />
             
-            <div className="relative z-10 container mx-auto px-4 py-8">
+            <div className="relative z-10 container mx-auto px-4 py-8 opacity-70">
               <div className="max-w-xl">
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold mb-4 text-primary leading-tight">
                   VW Fahrzeugdaten Analyse
