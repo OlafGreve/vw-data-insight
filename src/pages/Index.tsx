@@ -10,51 +10,41 @@ import { parseVehicleData, getFieldNamesByFrequency, filterData } from "@/lib/da
 import { loadDataDictionary } from "@/lib/dataDictionary";
 import type { VehicleDataFile, ParsedDataPoint, DataFilter } from "@/types/vehicleData";
 import forestRoadBeetle from "@/assets/forest-road-beetle.jpg";
-
 const Index = () => {
   const [rawData, setRawData] = useState<VehicleDataFile | null>(null);
   const [filter, setFilter] = useState<DataFilter>({
     dataFieldNames: [],
     startDate: null,
     endDate: null,
-    searchTerm: "",
+    searchTerm: ""
   });
-
   useEffect(() => {
     loadDataDictionary();
   }, []);
-
   const parsedData = useMemo(() => {
     if (!rawData) return [];
     return parseVehicleData(rawData);
   }, [rawData]);
-
   const filteredData = useMemo(() => {
     return filterData(parsedData, filter.dataFieldNames, filter.startDate, filter.endDate, filter.searchTerm);
   }, [parsedData, filter]);
-
   const fieldsWithFrequency = useMemo(() => getFieldNamesByFrequency(parsedData), [parsedData]);
-
   const handleDataLoaded = (data: VehicleDataFile) => {
     setRawData(data);
     setFilter({
       dataFieldNames: [],
       startDate: null,
       endDate: null,
-      searchTerm: "",
+      searchTerm: ""
     });
   };
-
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <Header vin={rawData?.vin} dataCount={parsedData.length} />
 
       <main>
-        {!rawData ? (
-          <section
-            className="relative min-h-[calc(100vh-4rem)] flex items-center bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: `url(${forestRoadBeetle})` }}
-          >
+        {!rawData ? <section className="relative min-h-[calc(100vh-4rem)] flex items-center bg-cover bg-center bg-no-repeat" style={{
+        backgroundImage: `url(${forestRoadBeetle})`
+      }}>
             {/* Dark overlay */}
             <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-background/40" />
 
@@ -77,12 +67,7 @@ const Index = () => {
                       <p className="text-sm text-muted-foreground mb-2">
                         Fordere deine Daten beim VW EU Data Act Portal an:
                       </p>
-                      <a
-                        href="https://eu-data-act.drivesomethinggreater.com/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium text-sm transition-colors"
-                      >
+                      <a href="https://eu-data-act.drivesomethinggreater.com/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium text-sm transition-colors">
                         eu-data-act.drivesomethinggreater.com
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
@@ -96,31 +81,23 @@ const Index = () => {
                       2
                     </span>
                     <div className="flex-1">
-                      <p className="text-sm text-muted-foreground mb-3">Lade die erhaltene ZIP-Datei hier hoch:</p>
+                      <p className="text-sm text-muted-foreground mb-3">Lade die erhaltene ZIP-Datei hier zur Analyse:</p>
                       <FileUpload onDataLoaded={handleDataLoaded} compact />
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </section>
-        ) : (
-          <div className="container mx-auto px-4 py-6 space-y-6 animate-slide-up">
+          </section> : <div className="container mx-auto px-4 py-6 space-y-6 animate-slide-up">
             <DataFilters filter={filter} onFilterChange={setFilter} fieldsWithFrequency={fieldsWithFrequency} />
 
             <Tabs defaultValue="charts" className="w-full">
               <TabsList className="bg-secondary/50 p-1">
-                <TabsTrigger
-                  value="charts"
-                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
+                <TabsTrigger value="charts" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <BarChart3 className="w-4 h-4 mr-2" />
                   Diagramme
                 </TabsTrigger>
-                <TabsTrigger
-                  value="table"
-                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
+                <TabsTrigger value="table" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <Table2 className="w-4 h-4 mr-2" />
                   Tabelle
                 </TabsTrigger>
@@ -137,18 +114,12 @@ const Index = () => {
 
             {/* Reset Button */}
             <div className="text-center pt-4">
-              <button
-                onClick={() => setRawData(null)}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors underline"
-              >
+              <button onClick={() => setRawData(null)} className="text-sm text-muted-foreground hover:text-foreground transition-colors underline">
                 Andere Datei laden
               </button>
             </div>
-          </div>
-        )}
+          </div>}
       </main>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
