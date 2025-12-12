@@ -3,41 +3,35 @@ import { Upload, FileArchive, CheckCircle2, AlertCircle } from 'lucide-react';
 import JSZip from 'jszip';
 import type { VehicleDataFile } from '@/types/vehicleData';
 import { cn } from '@/lib/utils';
-
 interface FileUploadProps {
   onDataLoaded: (data: VehicleDataFile) => void;
   compact?: boolean;
 }
-
 type UploadState = 'idle' | 'loading' | 'success' | 'error';
-
-export function FileUpload({ onDataLoaded, compact = false }: FileUploadProps) {
+export function FileUpload({
+  onDataLoaded,
+  compact = false
+}: FileUploadProps) {
   const [uploadState, setUploadState] = useState<UploadState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-
   const processZipFile = async (file: File) => {
     setUploadState('loading');
     setError(null);
-
     try {
       const zip = new JSZip();
       const content = await zip.loadAsync(file);
-      
+
       // Find JSON file in ZIP
       const jsonFile = Object.keys(content.files).find(name => name.endsWith('.json'));
-      
       if (!jsonFile) {
         throw new Error('Keine JSON-Datei im ZIP-Archiv gefunden');
       }
-
       const jsonContent = await content.files[jsonFile].async('string');
       const data: VehicleDataFile = JSON.parse(jsonContent);
-
       if (!data.Data || !Array.isArray(data.Data)) {
         throw new Error('Ungültiges Datenformat: Data-Array fehlt');
       }
-
       setUploadState('success');
       onDataLoaded(data);
     } catch (err) {
@@ -45,19 +39,15 @@ export function FileUpload({ onDataLoaded, compact = false }: FileUploadProps) {
       setError(err instanceof Error ? err.message : 'Fehler beim Laden der Datei');
     }
   };
-
   const processJsonFile = async (file: File) => {
     setUploadState('loading');
     setError(null);
-
     try {
       const text = await file.text();
       const data: VehicleDataFile = JSON.parse(text);
-
       if (!data.Data || !Array.isArray(data.Data)) {
         throw new Error('Ungültiges Datenformat: Data-Array fehlt');
       }
-
       setUploadState('success');
       onDataLoaded(data);
     } catch (err) {
@@ -65,7 +55,6 @@ export function FileUpload({ onDataLoaded, compact = false }: FileUploadProps) {
       setError(err instanceof Error ? err.message : 'Fehler beim Laden der Datei');
     }
   };
-
   const handleFile = async (file: File) => {
     if (file.name.endsWith('.zip')) {
       await processZipFile(file);
@@ -76,116 +65,58 @@ export function FileUpload({ onDataLoaded, compact = false }: FileUploadProps) {
       setUploadState('error');
     }
   };
-
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
     const file = e.dataTransfer.files[0];
     if (file) handleFile(file);
   }, []);
-
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(true);
   }, []);
-
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
   }, []);
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) handleFile(file);
   };
-
   if (compact) {
-    return (
-      <div
-        className={cn(
-          'relative rounded-lg border border-dashed transition-all duration-300',
-          'p-3 text-center cursor-pointer',
-          isDragOver 
-            ? 'border-primary bg-primary/10' 
-            : 'border-border hover:border-primary/50 hover:bg-secondary/30',
-          uploadState === 'success' && 'border-success bg-success/10',
-          uploadState === 'error' && 'border-destructive bg-destructive/10'
-        )}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onClick={() => document.getElementById('file-input-compact')?.click()}
-      >
-        <input
-          id="file-input-compact"
-          type="file"
-          accept=".zip,.json"
-          className="hidden"
-          onChange={handleInputChange}
-        />
+    return <div className={cn('relative rounded-lg border border-dashed transition-all duration-300', 'p-3 text-center cursor-pointer', isDragOver ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50 hover:bg-secondary/30', uploadState === 'success' && 'border-success bg-success/10', uploadState === 'error' && 'border-destructive bg-destructive/10')} onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onClick={() => document.getElementById('file-input-compact')?.click()}>
+        <input id="file-input-compact" type="file" accept=".zip,.json" className="hidden" onChange={handleInputChange} />
 
         <div className="flex items-center justify-center gap-3">
-          {uploadState === 'idle' && (
-            <>
+          {uploadState === 'idle' && <>
               <FileArchive className="w-5 h-5 text-primary shrink-0" />
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-primary">
                 ZIP oder JSON hierher ziehen oder klicken
               </span>
-            </>
-          )}
+            </>}
 
-          {uploadState === 'loading' && (
-            <>
+          {uploadState === 'loading' && <>
               <Upload className="w-5 h-5 text-primary animate-bounce shrink-0" />
               <span className="text-sm text-muted-foreground">Wird verarbeitet...</span>
-            </>
-          )}
+            </>}
 
-          {uploadState === 'success' && (
-            <>
+          {uploadState === 'success' && <>
               <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
               <span className="text-sm text-success">Daten geladen!</span>
-            </>
-          )}
+            </>}
 
-          {uploadState === 'error' && (
-            <>
+          {uploadState === 'error' && <>
               <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
               <span className="text-sm text-destructive">{error}</span>
-            </>
-          )}
+            </>}
         </div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div
-      className={cn(
-        'relative rounded-xl border-2 border-dashed transition-all duration-300',
-        'p-8 md:p-12 text-center cursor-pointer',
-        isDragOver 
-          ? 'border-primary bg-primary/10 electric-glow' 
-          : 'border-border hover:border-primary/50 hover:bg-secondary/30',
-        uploadState === 'success' && 'border-success bg-success/10',
-        uploadState === 'error' && 'border-destructive bg-destructive/10'
-      )}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onClick={() => document.getElementById('file-input')?.click()}
-    >
-      <input
-        id="file-input"
-        type="file"
-        accept=".zip,.json"
-        className="hidden"
-        onChange={handleInputChange}
-      />
+  return <div className={cn('relative rounded-xl border-2 border-dashed transition-all duration-300', 'p-8 md:p-12 text-center cursor-pointer', isDragOver ? 'border-primary bg-primary/10 electric-glow' : 'border-border hover:border-primary/50 hover:bg-secondary/30', uploadState === 'success' && 'border-success bg-success/10', uploadState === 'error' && 'border-destructive bg-destructive/10')} onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onClick={() => document.getElementById('file-input')?.click()}>
+      <input id="file-input" type="file" accept=".zip,.json" className="hidden" onChange={handleInputChange} />
 
       <div className="flex flex-col items-center gap-4">
-        {uploadState === 'idle' && (
-          <>
+        {uploadState === 'idle' && <>
             <div className="relative">
               <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse-glow" />
               <div className="relative p-4 rounded-full bg-secondary">
@@ -200,46 +131,35 @@ export function FileUpload({ onDataLoaded, compact = false }: FileUploadProps) {
                 ZIP-Archiv oder JSON-Datei hierher ziehen oder klicken
               </p>
             </div>
-          </>
-        )}
+          </>}
 
-        {uploadState === 'loading' && (
-          <>
+        {uploadState === 'loading' && <>
             <div className="p-4 rounded-full bg-secondary animate-pulse">
               <Upload className="w-10 h-10 text-primary animate-bounce" />
             </div>
             <p className="text-muted-foreground">Datei wird verarbeitet...</p>
-          </>
-        )}
+          </>}
 
-        {uploadState === 'success' && (
-          <>
+        {uploadState === 'success' && <>
             <div className="p-4 rounded-full bg-success/20">
               <CheckCircle2 className="w-10 h-10 text-success" />
             </div>
             <p className="text-success font-medium">Daten erfolgreich geladen!</p>
-          </>
-        )}
+          </>}
 
-        {uploadState === 'error' && (
-          <>
+        {uploadState === 'error' && <>
             <div className="p-4 rounded-full bg-destructive/20">
               <AlertCircle className="w-10 h-10 text-destructive" />
             </div>
             <p className="text-destructive font-medium">{error}</p>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setUploadState('idle');
-                setError(null);
-              }}
-              className="text-sm text-muted-foreground hover:text-foreground underline"
-            >
+            <button onClick={e => {
+          e.stopPropagation();
+          setUploadState('idle');
+          setError(null);
+        }} className="text-sm text-muted-foreground hover:text-foreground underline">
               Erneut versuchen
             </button>
-          </>
-        )}
+          </>}
       </div>
-    </div>
-  );
+    </div>;
 }
