@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Calendar } from '@/components/ui/calendar';
 import type { DataFilter } from '@/types/vehicleData';
 import { cn } from '@/lib/utils';
@@ -190,43 +189,44 @@ export function DataFilters({ filter, onFilterChange, fieldsWithFrequency }: Dat
 
       {/* Selected Fields Badges */}
       {filter.dataFieldNames.length > 0 && (
-        <TooltipProvider>
-          <div className="flex flex-wrap gap-2">
-            {filter.dataFieldNames.map(field => {
-              const description = getFieldDescription(field);
-              return (
-                <Tooltip key={field}>
-                  <TooltipTrigger asChild>
-                    <Badge
-                      variant="secondary"
-                      className="pl-2 pr-1 py-1 bg-primary/10 text-primary border-primary/20 cursor-help"
+        <div className="flex flex-wrap gap-2">
+          {filter.dataFieldNames.map(field => {
+            const description = getFieldDescription(field);
+            return (
+              <Popover key={field}>
+                <PopoverTrigger asChild>
+                  <Badge
+                    variant="secondary"
+                    className="pl-2 pr-1 py-1 bg-primary/10 text-primary border-primary/20 cursor-pointer hover:bg-primary/20 transition-colors"
+                  >
+                    {field}
+                    {description && <Info className="w-3 h-3 ml-1 opacity-50" />}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeField(field);
+                      }}
+                      className="ml-1 p-0.5 rounded-full hover:bg-primary/30 transition-colors"
                     >
-                      {field}
-                      {description && <Info className="w-3 h-3 ml-1 opacity-50" />}
-                      <button
-                        onClick={() => removeField(field)}
-                        className="ml-1 p-0.5 rounded-full hover:bg-primary/20 transition-colors"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  </TooltipTrigger>
-                  {description && (
-                    <TooltipContent side="bottom" className="max-w-xs">
-                      <p className="font-medium">{description.dataPointName}</p>
-                      {description.description && (
-                        <p className="text-xs text-muted-foreground mt-1">{description.description}</p>
-                      )}
-                      {description.unit && (
-                        <p className="text-xs mt-1">Einheit: {description.unit}</p>
-                      )}
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              );
-            })}
-          </div>
-        </TooltipProvider>
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                </PopoverTrigger>
+                {description && (
+                  <PopoverContent side="bottom" className="max-w-xs bg-popover border-border">
+                    <p className="font-medium">{description.dataPointName}</p>
+                    {description.description && (
+                      <p className="text-xs text-muted-foreground mt-1">{description.description}</p>
+                    )}
+                    {description.unit && (
+                      <p className="text-xs mt-1">Einheit: {description.unit}</p>
+                    )}
+                  </PopoverContent>
+                )}
+              </Popover>
+            );
+          })}
+        </div>
       )}
     </div>
   );

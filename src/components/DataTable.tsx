@@ -4,7 +4,7 @@ import type { ParsedDataPoint } from '@/types/vehicleData';
 import { format, isValid } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { getFieldDescription, getFieldDescriptionByKey } from '@/lib/dataDictionary';
 
 interface DataTableProps {
@@ -151,25 +151,23 @@ export function DataTable({ data }: DataTableProps) {
                     const description = getFieldDescriptionByKey(row.key) || getFieldDescription(row.dataFieldName);
                     if (description) {
                       return (
-                        <TooltipProvider delayDuration={100}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex items-center gap-1 cursor-help">
-                                {row.dataFieldName}
-                                <Info className="w-3 h-3 opacity-50" />
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" align="start" sideOffset={5} className="max-w-sm z-50">
-                              <p className="font-medium">{description.dataPointName}</p>
-                              {description.description && (
-                                <p className="text-xs text-muted-foreground mt-1">{description.description}</p>
-                              )}
-                              {description.unit && (
-                                <p className="text-xs mt-1">Einheit: {description.unit}</p>
-                              )}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1 cursor-pointer hover:text-primary transition-colors text-left">
+                              {row.dataFieldName}
+                              <Info className="w-3 h-3 opacity-50" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="top" align="start" sideOffset={5} className="max-w-sm z-50 bg-popover border-border">
+                            <p className="font-medium">{description.dataPointName}</p>
+                            {description.description && (
+                              <p className="text-xs text-muted-foreground mt-1">{description.description}</p>
+                            )}
+                            {description.unit && (
+                              <p className="text-xs mt-1">Einheit: {description.unit}</p>
+                            )}
+                          </PopoverContent>
+                        </Popover>
                       );
                     }
                     return row.dataFieldName;
