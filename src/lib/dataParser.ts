@@ -1,4 +1,5 @@
 import type { VehicleDataFile, VehicleDataEntry, ParsedDataPoint } from '@/types/vehicleData';
+import { endOfDay } from 'date-fns';
 
 export function parseVehicleData(data: VehicleDataFile): ParsedDataPoint[] {
   return data.Data.map((entry, index) => ({
@@ -73,10 +74,13 @@ export function filterData(
   endDate: Date | null,
   searchTerm: string
 ): ParsedDataPoint[] {
+  // Enddatum auf Ende des Tages setzen (23:59:59.999)
+  const adjustedEndDate = endDate ? endOfDay(endDate) : null;
+  
   return data.filter(d => {
     if (fieldNames.length > 0 && !fieldNames.includes(d.dataFieldName)) return false;
     if (startDate && d.timestampUtc && d.timestampUtc < startDate) return false;
-    if (endDate && d.timestampUtc && d.timestampUtc > endDate) return false;
+    if (adjustedEndDate && d.timestampUtc && d.timestampUtc > adjustedEndDate) return false;
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       if (!d.dataFieldName.toLowerCase().includes(term) && 
