@@ -1,10 +1,13 @@
-import { Search, Filter, X, Check, Info } from 'lucide-react';
+import { Search, Filter, X, Check, Info, CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { de } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Calendar } from '@/components/ui/calendar';
 import type { DataFilter } from '@/types/vehicleData';
 import { cn } from '@/lib/utils';
 import { getFieldDescription } from '@/lib/dataDictionary';
@@ -133,28 +136,56 @@ export function DataFilters({ filter, onFilterChange, fieldsWithFrequency }: Dat
         </Popover>
 
         {/* Start Date */}
-        <Input
-          type="datetime-local"
-          value={filter.startDate?.toISOString().slice(0, 16) || ''}
-          onChange={(e) => onFilterChange({ 
-            ...filter, 
-            startDate: e.target.value ? new Date(e.target.value) : null 
-          })}
-          className="bg-secondary/50 border-border/50 focus:border-primary"
-          placeholder="Von"
-        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "justify-start text-left font-normal bg-secondary/50 border-border/50 hover:bg-secondary/70",
+                !filter.startDate && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {filter.startDate ? format(filter.startDate, "dd.MM.yyyy", { locale: de }) : "Von"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 bg-popover border-border" align="start">
+            <Calendar
+              mode="single"
+              selected={filter.startDate || undefined}
+              onSelect={(date) => onFilterChange({ ...filter, startDate: date || null })}
+              initialFocus
+              className="pointer-events-auto"
+              locale={de}
+            />
+          </PopoverContent>
+        </Popover>
 
         {/* End Date */}
-        <Input
-          type="datetime-local"
-          value={filter.endDate?.toISOString().slice(0, 16) || ''}
-          onChange={(e) => onFilterChange({ 
-            ...filter, 
-            endDate: e.target.value ? new Date(e.target.value) : null 
-          })}
-          className="bg-secondary/50 border-border/50 focus:border-primary"
-          placeholder="Bis"
-        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "justify-start text-left font-normal bg-secondary/50 border-border/50 hover:bg-secondary/70",
+                !filter.endDate && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {filter.endDate ? format(filter.endDate, "dd.MM.yyyy", { locale: de }) : "Bis"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 bg-popover border-border" align="start">
+            <Calendar
+              mode="single"
+              selected={filter.endDate || undefined}
+              onSelect={(date) => onFilterChange({ ...filter, endDate: date || null })}
+              initialFocus
+              className="pointer-events-auto"
+              locale={de}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Selected Fields Badges */}
