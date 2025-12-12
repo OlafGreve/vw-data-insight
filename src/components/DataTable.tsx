@@ -158,7 +158,7 @@ export function DataTable({ data }: DataTableProps) {
                               <Info className="w-3 h-3 opacity-50" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="top" align="start" sideOffset={5} className="max-w-sm z-50 bg-popover border-border">
+                          <PopoverContent side="top" align="start" sideOffset={5} className="w-80 md:w-96 z-50 bg-popover border-border">
                             <p className="font-medium">{description.dataPointName}</p>
                             {description.description && (
                               <p className="text-xs text-muted-foreground mt-1">{description.description}</p>
