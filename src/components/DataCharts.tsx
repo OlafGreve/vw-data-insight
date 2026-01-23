@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, ReferenceArea } from 'recharts';
+import React, { useMemo, useRef } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, Brush } from 'recharts';
 import type { ParsedDataPoint } from '@/types/vehicleData';
 import { getTimeSeriesData, getFieldFrequency } from '@/lib/dataParser';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Battery, Gauge, Zap, Route, Clock, MousePointer2 } from 'lucide-react';
+import { Battery, Gauge, Zap, Route, Clock, SlidersHorizontal } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
@@ -28,59 +28,10 @@ const CHART_COLORS = [
 ];
 
 export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: DataChartsProps) {
-  const [useLinearTimeScale, setUseLinearTimeScale] = useState(false);
+  const [useLinearTimeScale, setUseLinearTimeScale] = React.useState(false);
   
-  // Zoom selection state
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [selectionStart, setSelectionStart] = useState<number | null>(null);
-  const [selectionEnd, setSelectionEnd] = useState<number | null>(null);
-
-  // Mouse event handlers for zoom selection
-  const handleMouseDown = (e: any) => {
-    if (!e?.activeLabel || !e.shiftKey) return;
-    
-    const timestamp = typeof e.activeLabel === 'number' 
-      ? e.activeLabel 
-      : new Date(e.activeLabel).getTime();
-    
-    setIsSelecting(true);
-    setSelectionStart(timestamp);
-    setSelectionEnd(timestamp);
-  };
-
-  const handleMouseMove = (e: any) => {
-    if (!isSelecting || !e?.activeLabel) return;
-    
-    const timestamp = typeof e.activeLabel === 'number' 
-      ? e.activeLabel 
-      : new Date(e.activeLabel).getTime();
-    
-    setSelectionEnd(timestamp);
-  };
-
-  const handleMouseUp = () => {
-    if (!isSelecting || selectionStart === null || selectionEnd === null) {
-      setIsSelecting(false);
-      return;
-    }
-    
-    // Sort timestamps (start < end)
-    const [start, end] = [selectionStart, selectionEnd].sort((a, b) => a - b);
-    
-    // Call parent callback with Date objects
-    onDateRangeSelect?.(new Date(start), new Date(end));
-    
-    // Reset selection state
-    setIsSelecting(false);
-    setSelectionStart(null);
-    setSelectionEnd(null);
-  };
-
-  const handleMouseLeave = () => {
-    if (isSelecting) {
-      handleMouseUp();
-    }
-  };
+  // Debounce ref to prevent rapid filter updates
+  const brushDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Helper function to convert Date objects to numeric timestamps for linear scale
   const toNumericTimestamps = (chartData: { timestamp: Date; value: number }[]) => {
@@ -94,6 +45,33 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
   const rangeDataRaw = useMemo(() => getTimeSeriesData(data, 'cruisingRangeElectricInKm'), [data]);
   const powerDataRaw = useMemo(() => getTimeSeriesData(data, 'chargePowerInKW'), [data]);
   const mileageData = useMemo(() => getTimeSeriesData(data, 'mileage'), [data]);
+
+  // Brush change handler - converts indices to dates and calls parent callback
+  const handleBrushChange = (brushData: { startIndex?: number; endIndex?: number }) => {
+    if (brushData.startIndex === undefined || brushData.endIndex === undefined) return;
+    
+    // Clear any pending debounce
+    if (brushDebounceRef.current) {
+      clearTimeout(brushDebounceRef.current);
+    }
+    
+    // Debounce to avoid excessive filter updates while dragging
+    brushDebounceRef.current = setTimeout(() => {
+      // Use raw SOC data as reference for timestamps (most complete dataset)
+      const sourceData = socDataRaw.length > 0 ? socDataRaw : rangeDataRaw;
+      if (sourceData.length === 0) return;
+      
+      const startTimestamp = sourceData[brushData.startIndex!]?.timestamp;
+      const endTimestamp = sourceData[brushData.endIndex!]?.timestamp;
+      
+      if (startTimestamp && endTimestamp) {
+        onDateRangeSelect?.(
+          new Date(startTimestamp),
+          new Date(endTimestamp)
+        );
+      }
+    }, 300);
+  };
 
   // Convert to numeric timestamps when linear scale is enabled
   const socData = useMemo(() => 
@@ -258,7 +236,7 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
         />
       </div>
 
-      {/* Linear Time Scale Toggle & Zoom Hint */}
+      {/* Linear Time Scale Toggle & Brush Hint */}
       <div className="glass-card rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-3">
           <Clock className="w-5 h-5 text-muted-foreground" />
@@ -277,24 +255,18 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground ml-8">
-          <MousePointer2 className="w-3.5 h-3.5" />
-          <span>Tipp: <kbd className="px-1.5 py-0.5 bg-secondary rounded text-[10px] font-mono">Shift</kbd> + Mausziehen in einem Diagramm setzt den Zeitbereich-Filter</span>
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          <span>Tipp: Ziehe die Ränder oder den Bereich im Schieberegler unter dem ersten Diagramm, um den Zeitfilter zu setzen</span>
         </div>
       </div>
 
       {/* Charts Grid */}
       <div className="grid md:grid-cols-2 gap-6">
-        {/* SOC Chart */}
+        {/* SOC Chart with Brush */}
         {socData.length > 0 && (
-          <ChartCard title="Ladezustand über Zeit" subtitle="Batterieladezustand in %">
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart 
-                data={socData}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseLeave}
-              >
+          <ChartCard title="Ladezustand über Zeit" subtitle="Batterieladezustand in % – Schieberegler zum Filtern">
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={socData}>
                 <defs>
                   <linearGradient id="socGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={chartConfig.soc.color} stopOpacity={0.3} />
@@ -318,22 +290,20 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
                   labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
                   formatter={(value: number) => [`${value}%`, 'Ladezustand']}
                 />
-                {isSelecting && selectionStart !== null && selectionEnd !== null && (
-                  <ReferenceArea
-                    x1={selectionStart}
-                    x2={selectionEnd}
-                    fill="hsl(185, 70%, 50%)"
-                    fillOpacity={0.3}
-                    stroke="hsl(185, 70%, 50%)"
-                    strokeOpacity={0.8}
-                  />
-                )}
                 <Area 
                   type="monotone" 
                   dataKey="value" 
                   stroke={chartConfig.soc.color} 
                   fill="url(#socGradient)" 
                   strokeWidth={2}
+                />
+                <Brush
+                  dataKey="timestamp"
+                  height={40}
+                  stroke="hsl(185, 70%, 50%)"
+                  fill="hsl(220, 15%, 12%)"
+                  tickFormatter={(value) => formatTimestamp(value)}
+                  onChange={handleBrushChange}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -343,14 +313,8 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
         {/* Range Chart */}
         {rangeData.length > 0 && (
           <ChartCard title="Reichweite über Zeit" subtitle="Elektrische Reichweite in km">
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart 
-                data={rangeData}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseLeave}
-              >
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={rangeData}>
                 <defs>
                   <linearGradient id="rangeGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={chartConfig.range.color} stopOpacity={0.3} />
@@ -373,16 +337,6 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
                   labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
                   formatter={(value: number) => [`${value} km`, 'Reichweite']}
                 />
-                {isSelecting && selectionStart !== null && selectionEnd !== null && (
-                  <ReferenceArea
-                    x1={selectionStart}
-                    x2={selectionEnd}
-                    fill="hsl(185, 70%, 50%)"
-                    fillOpacity={0.3}
-                    stroke="hsl(185, 70%, 50%)"
-                    strokeOpacity={0.8}
-                  />
-                )}
                 <Area 
                   type="monotone" 
                   dataKey="value" 
@@ -399,13 +353,7 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
         {powerData.length > 0 && (
           <ChartCard title="Ladeleistung" subtitle="Aktuelle Ladeleistung in kW">
             <ResponsiveContainer width="100%" height={250}>
-              <LineChart 
-                data={powerData}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseLeave}
-              >
+              <LineChart data={powerData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
                 <XAxis {...getTimeAxisProps()} />
                 <YAxis 
@@ -422,16 +370,6 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
                   labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
                   formatter={(value: number) => [`${value} kW`, 'Ladeleistung']}
                 />
-                {isSelecting && selectionStart !== null && selectionEnd !== null && (
-                  <ReferenceArea
-                    x1={selectionStart}
-                    x2={selectionEnd}
-                    fill="hsl(185, 70%, 50%)"
-                    fillOpacity={0.3}
-                    stroke="hsl(185, 70%, 50%)"
-                    strokeOpacity={0.8}
-                  />
-                )}
                 <Line 
                   type="stepAfter" 
                   dataKey="value" 
@@ -489,13 +427,7 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
             subtitle={`${chartData.length} Datenpunkte`}
           >
             <ResponsiveContainer width="100%" height={250}>
-              <AreaChart 
-                data={chartData}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseLeave}
-              >
+              <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={color} stopOpacity={0.3} />
@@ -518,16 +450,6 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
                   labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
                   formatter={(value: number) => [value.toLocaleString('de-DE'), field]}
                 />
-                {isSelecting && selectionStart !== null && selectionEnd !== null && (
-                  <ReferenceArea
-                    x1={selectionStart}
-                    x2={selectionEnd}
-                    fill="hsl(185, 70%, 50%)"
-                    fillOpacity={0.3}
-                    stroke="hsl(185, 70%, 50%)"
-                    strokeOpacity={0.8}
-                  />
-                )}
                 <Area 
                   type="monotone" 
                   dataKey="value" 
