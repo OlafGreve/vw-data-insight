@@ -140,8 +140,7 @@ export function DataTable({ data }: DataTableProps) {
             {paginatedData.map((row, idx) => (
               <tr 
                 key={`${row.key}-${idx}`}
-                className="border-b border-border/50 hover:bg-secondary/30 transition-colors animate-fade-in"
-                style={{ animationDelay: `${idx * 10}ms` }}
+                className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
               >
                 <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                   {row.rowNumber}

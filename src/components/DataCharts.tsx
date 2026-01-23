@@ -1,7 +1,8 @@
-import React, { useMemo, useCallback, useRef } from 'react';
+import React, { useMemo, useCallback, useRef, useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
 import type { ParsedDataPoint } from '@/types/vehicleData';
 import { getTimeSeriesData, getFieldFrequency } from '@/lib/dataParser';
+import { downsampleLTTB } from '@/lib/downsample';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Battery, Gauge, Zap, Route, CalendarRange } from 'lucide-react';
@@ -33,8 +34,27 @@ const CHART_COLORS = [
   'hsl(60, 70%, 50%)',
 ];
 
+// Max points per chart for performance
+const MAX_CHART_POINTS = 500;
+
 export function DataCharts({ data, selectedFields = [], useLinearTimeScale = false, onDateRangeSelect }: DataChartsProps) {
   const activeTimestampRef = useRef<Date | null>(null);
+  const [visibleCharts, setVisibleCharts] = useState(0);
+
+  // Progressive chart loading
+  useEffect(() => {
+    setVisibleCharts(0);
+    const timer = setInterval(() => {
+      setVisibleCharts(prev => {
+        if (prev >= 6) {
+          clearInterval(timer);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 60);
+    return () => clearInterval(timer);
+  }, [data]);
 
   // Track the currently hovered timestamp for context menu - uses ref to avoid re-renders
   const handleChartMouseMove = useCallback((e: any) => {
@@ -64,24 +84,26 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
     }));
   };
   
-  const socDataRaw = useMemo(() => getTimeSeriesData(data, 'currentSOCInPct'), [data]);
-  const rangeDataRaw = useMemo(() => getTimeSeriesData(data, 'cruisingRangeElectricInKm'), [data]);
-  const powerDataRaw = useMemo(() => getTimeSeriesData(data, 'chargePowerInKW'), [data]);
-  const mileageData = useMemo(() => getTimeSeriesData(data, 'mileage'), [data]);
+  // Get and downsample chart data
+  const socData = useMemo(() => {
+    const raw = getTimeSeriesData(data, 'currentSOCInPct');
+    const downsampled = downsampleLTTB(raw, MAX_CHART_POINTS);
+    return useLinearTimeScale ? toNumericTimestamps(downsampled) : downsampled;
+  }, [data, useLinearTimeScale]);
 
-  // Convert to numeric timestamps when linear scale is enabled
-  const socData = useMemo(() => 
-    useLinearTimeScale ? toNumericTimestamps(socDataRaw) : socDataRaw, 
-    [socDataRaw, useLinearTimeScale]
-  );
-  const rangeData = useMemo(() => 
-    useLinearTimeScale ? toNumericTimestamps(rangeDataRaw) : rangeDataRaw, 
-    [rangeDataRaw, useLinearTimeScale]
-  );
-  const powerData = useMemo(() => 
-    useLinearTimeScale ? toNumericTimestamps(powerDataRaw) : powerDataRaw, 
-    [powerDataRaw, useLinearTimeScale]
-  );
+  const rangeData = useMemo(() => {
+    const raw = getTimeSeriesData(data, 'cruisingRangeElectricInKm');
+    const downsampled = downsampleLTTB(raw, MAX_CHART_POINTS);
+    return useLinearTimeScale ? toNumericTimestamps(downsampled) : downsampled;
+  }, [data, useLinearTimeScale]);
+
+  const powerData = useMemo(() => {
+    const raw = getTimeSeriesData(data, 'chargePowerInKW');
+    const downsampled = downsampleLTTB(raw, MAX_CHART_POINTS);
+    return useLinearTimeScale ? toNumericTimestamps(downsampled) : downsampled;
+  }, [data, useLinearTimeScale]);
+
+  const mileageData = useMemo(() => getTimeSeriesData(data, 'mileage'), [data]);
 
   // Berechne Kilometer pro Tag
   const dailyMileageData = useMemo(() => {
@@ -127,13 +149,14 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
     });
   }, [selectedFields, data]);
 
-  // Daten für zusätzliche Charts
+  // Daten für zusätzliche Charts mit Downsampling
   const additionalChartsData = useMemo(() => {
     return additionalNumericFields.map((field, index) => {
       const rawData = getTimeSeriesData(data, field);
+      const downsampled = downsampleLTTB(rawData, MAX_CHART_POINTS);
       return {
         field,
-        data: useLinearTimeScale ? toNumericTimestamps(rawData) : rawData,
+        data: useLinearTimeScale ? toNumericTimestamps(downsampled) : downsampled,
         color: CHART_COLORS[index % CHART_COLORS.length],
       };
     });
@@ -254,7 +277,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
       {/* Charts Grid */}
       <div className="grid md:grid-cols-2 gap-6">
         {/* SOC Chart */}
-        {socData.length > 0 && (
+        {visibleCharts >= 1 && socData.length > 0 && (
           <ChartCard title="Ladezustand über Zeit" subtitle="Batterieladezustand in %">
             <ChartWithContextMenu>
               <ResponsiveContainer width="100%" height={250}>
@@ -288,6 +311,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
                     stroke={chartConfig.soc.color} 
                     fill="url(#socGradient)" 
                     strokeWidth={2}
+                    isAnimationActive={false}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -296,7 +320,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
         )}
 
         {/* Range Chart */}
-        {rangeData.length > 0 && (
+        {visibleCharts >= 2 && rangeData.length > 0 && (
           <ChartCard title="Reichweite über Zeit" subtitle="Elektrische Reichweite in km">
             <ChartWithContextMenu>
               <ResponsiveContainer width="100%" height={250}>
@@ -329,6 +353,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
                     stroke={chartConfig.range.color} 
                     fill="url(#rangeGradient)" 
                     strokeWidth={2}
+                    isAnimationActive={false}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -337,7 +362,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
         )}
 
         {/* Power Chart */}
-        {powerData.length > 0 && (
+        {visibleCharts >= 3 && powerData.length > 0 && (
           <ChartCard title="Ladeleistung" subtitle="Aktuelle Ladeleistung in kW">
             <ChartWithContextMenu>
               <ResponsiveContainer width="100%" height={250}>
@@ -364,6 +389,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
                     stroke={chartConfig.power.color} 
                     strokeWidth={2}
                     dot={false}
+                    isAnimationActive={false}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -372,7 +398,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
         )}
 
         {/* Daily Mileage Chart */}
-        {dailyMileageData.length > 0 && (
+        {visibleCharts >= 4 && dailyMileageData.length > 0 && (
           <ChartCard title="Kilometer pro Tag" subtitle="Täglich gefahrene Kilometer">
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={dailyMileageData}>
@@ -402,6 +428,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
                   dataKey="km" 
                   fill="hsl(270, 60%, 55%)" 
                   radius={[4, 4, 0, 0]}
+                  isAnimationActive={false}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -409,7 +436,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
         )}
 
         {/* Dynamic Charts for Additional Selected Fields */}
-        {additionalChartsData.map(({ field, data: chartData, color }, index) => (
+        {visibleCharts >= 5 && additionalChartsData.map(({ field, data: chartData, color }, index) => (
           <ChartCard 
             key={field} 
             title={field} 
@@ -446,6 +473,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
                     stroke={color} 
                     fill={`url(#gradient-${index})`}
                     strokeWidth={2}
+                    isAnimationActive={false}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -454,36 +482,39 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
         ))}
 
         {/* Field Frequency - Always Last */}
-        <ChartCard title="Häufigste Datenpunkte" subtitle="Top 10 Datenfelder nach Häufigkeit">
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={fieldFrequency} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
-              <XAxis type="number" stroke="hsl(220, 10%, 55%)" fontSize={11} />
-              <YAxis 
-                type="category" 
-                dataKey="name" 
-                width={140}
-                stroke="hsl(220, 10%, 55%)"
-                fontSize={10}
-                tick={{ fill: 'hsl(220, 10%, 75%)' }}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'hsl(220, 15%, 16%)', 
-                  border: '1px solid hsl(220, 12%, 25%)',
-                  borderRadius: '8px',
-                  color: 'hsl(220, 10%, 92%)'
-                }}
-                formatter={(value: number) => [value.toLocaleString('de-DE'), 'Anzahl']}
-              />
-              <Bar 
-                dataKey="count" 
-                fill="hsl(185, 70%, 50%)" 
-                radius={[0, 4, 4, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
+        {visibleCharts >= 6 && (
+          <ChartCard title="Häufigste Datenpunkte" subtitle="Top 10 Datenfelder nach Häufigkeit">
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={fieldFrequency} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
+                <XAxis type="number" stroke="hsl(220, 10%, 55%)" fontSize={11} />
+                <YAxis 
+                  type="category" 
+                  dataKey="name" 
+                  width={140}
+                  stroke="hsl(220, 10%, 55%)"
+                  fontSize={10}
+                  tick={{ fill: 'hsl(220, 10%, 75%)' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(220, 15%, 16%)', 
+                    border: '1px solid hsl(220, 12%, 25%)',
+                    borderRadius: '8px',
+                    color: 'hsl(220, 10%, 92%)'
+                  }}
+                  formatter={(value: number) => [value.toLocaleString('de-DE'), 'Anzahl']}
+                />
+                <Bar 
+                  dataKey="count" 
+                  fill="hsl(185, 70%, 50%)" 
+                  radius={[0, 4, 4, 0]}
+                  isAnimationActive={false}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        )}
       </div>
     </div>
   );
@@ -506,7 +537,7 @@ function StatCard({ icon: Icon, label, value, unit, color }: StatCardProps) {
   };
 
   return (
-    <div className="glass-card rounded-xl p-4 animate-slide-up">
+    <div className="glass-card rounded-xl p-4">
       <div className="flex items-start gap-3">
         <div className={`p-2 rounded-lg ${colorClasses[color]}`}>
           <Icon className="w-5 h-5" />
@@ -537,7 +568,7 @@ interface ChartCardProps {
 
 function ChartCard({ title, subtitle, children }: ChartCardProps) {
   return (
-    <div className="glass-card rounded-xl p-5 animate-slide-up">
+    <div className="glass-card rounded-xl p-5 animate-fade-in">
       <div className="mb-4">
         <h3 className="font-display font-semibold text-foreground">{title}</h3>
         <p className="text-xs text-muted-foreground">{subtitle}</p>
