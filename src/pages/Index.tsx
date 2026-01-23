@@ -9,6 +9,7 @@ import { FileUpload } from "@/components/FileUpload";
 import { DataTable } from "@/components/DataTable";
 import { DataCharts } from "@/components/DataCharts";
 import { DataFilters } from "@/components/DataFilters";
+import { ChartsSkeleton } from "@/components/ChartsSkeleton";
 import { parseVehicleData, getFieldNamesByFrequency, filterData } from "@/lib/dataParser";
 import { loadDataDictionary } from "@/lib/dataDictionary";
 import type { VehicleDataFile, ParsedDataPoint, DataFilter } from "@/types/vehicleData";
@@ -17,6 +18,7 @@ const Index = () => {
   const [rawData, setRawData] = useState<VehicleDataFile | null>(null);
   const [activeTab, setActiveTab] = useState("charts");
   const [useLinearTimeScale, setUseLinearTimeScale] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [filter, setFilter] = useState<DataFilter>({
     dataFieldNames: [],
     startDate: null,
@@ -34,7 +36,16 @@ const Index = () => {
     return filterData(parsedData, filter.dataFieldNames, filter.startDate, filter.endDate, filter.searchTerm);
   }, [parsedData, filter]);
   const fieldsWithFrequency = useMemo(() => getFieldNamesByFrequency(parsedData), [parsedData]);
+  // Show skeleton briefly then reveal charts
+  useEffect(() => {
+    if (rawData && isProcessing) {
+      const timer = setTimeout(() => setIsProcessing(false), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [rawData, parsedData, isProcessing]);
+
   const handleDataLoaded = (data: VehicleDataFile) => {
+    setIsProcessing(true);
     setRawData(data);
     setFilter({
       dataFieldNames: [],
@@ -137,18 +148,22 @@ const Index = () => {
               </div>
 
               <TabsContent value="charts" className="mt-6">
-                <DataCharts 
-                  data={filteredData} 
-                  selectedFields={filter.dataFieldNames}
-                  useLinearTimeScale={useLinearTimeScale}
-                  onDateRangeSelect={(startDate, endDate, mode) => {
-                    setFilter(prev => ({
-                      ...prev,
-                      startDate: mode === 'start' ? startDate : prev.startDate,
-                      endDate: mode === 'end' ? endDate : prev.endDate,
-                    }));
-                  }}
-                />
+                {isProcessing ? (
+                  <ChartsSkeleton />
+                ) : (
+                  <DataCharts 
+                    data={filteredData} 
+                    selectedFields={filter.dataFieldNames}
+                    useLinearTimeScale={useLinearTimeScale}
+                    onDateRangeSelect={(startDate, endDate, mode) => {
+                      setFilter(prev => ({
+                        ...prev,
+                        startDate: mode === 'start' ? startDate : prev.startDate,
+                        endDate: mode === 'end' ? endDate : prev.endDate,
+                      }));
+                    }}
+                  />
+                )}
               </TabsContent>
 
               <TabsContent value="table" className="mt-6">
