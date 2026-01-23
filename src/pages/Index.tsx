@@ -1,6 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Table2, ExternalLink } from "lucide-react";
+import { BarChart3, Table2, ExternalLink, Info } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Header } from "@/components/Header";
 import { FileUpload } from "@/components/FileUpload";
 import { DataTable } from "@/components/DataTable";
@@ -12,6 +15,8 @@ import type { VehicleDataFile, ParsedDataPoint, DataFilter } from "@/types/vehic
 import forestRoadBeetle from "@/assets/forest-road-beetle.jpg";
 const Index = () => {
   const [rawData, setRawData] = useState<VehicleDataFile | null>(null);
+  const [activeTab, setActiveTab] = useState("charts");
+  const [useLinearTimeScale, setUseLinearTimeScale] = useState(false);
   const [filter, setFilter] = useState<DataFilter>({
     dataFieldNames: [],
     startDate: null,
@@ -91,22 +96,51 @@ const Index = () => {
           </section> : <div className="container mx-auto px-4 py-6 space-y-6 animate-slide-up">
             <DataFilters filter={filter} onFilterChange={setFilter} fieldsWithFrequency={fieldsWithFrequency} />
 
-            <Tabs defaultValue="charts" className="w-full">
-              <TabsList className="bg-secondary/50 p-1">
-                <TabsTrigger value="charts" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Diagramme
-                </TabsTrigger>
-                <TabsTrigger value="table" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <Table2 className="w-4 h-4 mr-2" />
-                  Tabelle
-                </TabsTrigger>
-              </TabsList>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <TabsList className="bg-secondary/50 p-1">
+                  <TabsTrigger value="charts" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Diagramme
+                  </TabsTrigger>
+                  <TabsTrigger value="table" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <Table2 className="w-4 h-4 mr-2" />
+                    Tabelle
+                  </TabsTrigger>
+                </TabsList>
+
+                {activeTab === "charts" && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="p-1.5 rounded-md hover:bg-secondary/50 transition-colors">
+                          <Info className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p>Rechtsklick (oder langes Tippen) auf einen Datenpunkt, um Start- oder Enddatum für den Filter zu setzen</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="linear-time-scale"
+                        checked={useLinearTimeScale}
+                        onCheckedChange={setUseLinearTimeScale}
+                      />
+                      <Label htmlFor="linear-time-scale" className="text-sm whitespace-nowrap cursor-pointer">
+                        Lineare Zeitachse
+                      </Label>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <TabsContent value="charts" className="mt-6">
                 <DataCharts 
                   data={filteredData} 
                   selectedFields={filter.dataFieldNames}
+                  useLinearTimeScale={useLinearTimeScale}
                   onDateRangeSelect={(startDate, endDate, mode) => {
                     setFilter(prev => ({
                       ...prev,
