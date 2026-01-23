@@ -55,7 +55,7 @@ export function FileUpload({
       setError(err instanceof Error ? err.message : 'Fehler beim Laden der Datei');
     }
   };
-  const handleFile = async (file: File) => {
+  const handleFile = useCallback(async (file: File) => {
     if (file.name.endsWith('.zip')) {
       await processZipFile(file);
     } else if (file.name.endsWith('.json')) {
@@ -64,13 +64,14 @@ export function FileUpload({
       setError('Bitte lade eine ZIP- oder JSON-Datei hoch');
       setUploadState('error');
     }
-  };
+  }, []);
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
     const file = e.dataTransfer.files[0];
     if (file) handleFile(file);
-  }, []);
+  }, [handleFile]);
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(true);
@@ -84,7 +85,7 @@ export function FileUpload({
     if (file) handleFile(file);
   };
   if (compact) {
-    return <div className={cn('relative rounded-lg border border-dashed transition-all duration-300', 'p-3 text-center cursor-pointer', isDragOver ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50 hover:bg-secondary/30', uploadState === 'success' && 'border-success bg-success/10', uploadState === 'error' && 'border-destructive bg-destructive/10')} onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onClick={() => document.getElementById('file-input-compact')?.click()}>
+    return <label htmlFor="file-input-compact" className={cn('relative rounded-lg border border-dashed transition-all duration-300', 'p-3 text-center cursor-pointer block', isDragOver ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50 hover:bg-secondary/30', uploadState === 'success' && 'border-success bg-success/10', uploadState === 'error' && 'border-destructive bg-destructive/10')} onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}>
         <input id="file-input-compact" type="file" accept=".zip,.json" className="hidden" onChange={handleInputChange} />
 
         <div className="flex items-center justify-center gap-3">
@@ -110,9 +111,9 @@ export function FileUpload({
               <span className="text-sm text-destructive">{error}</span>
             </>}
         </div>
-      </div>;
+      </label>;
   }
-  return <div className={cn('relative rounded-xl border-2 border-dashed transition-all duration-300', 'p-8 md:p-12 text-center cursor-pointer', isDragOver ? 'border-primary bg-primary/10 electric-glow' : 'border-border hover:border-primary/50 hover:bg-secondary/30', uploadState === 'success' && 'border-success bg-success/10', uploadState === 'error' && 'border-destructive bg-destructive/10')} onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onClick={() => document.getElementById('file-input')?.click()}>
+  return <label htmlFor="file-input" className={cn('relative rounded-xl border-2 border-dashed transition-all duration-300', 'p-8 md:p-12 text-center cursor-pointer block', isDragOver ? 'border-primary bg-primary/10 electric-glow' : 'border-border hover:border-primary/50 hover:bg-secondary/30', uploadState === 'success' && 'border-success bg-success/10', uploadState === 'error' && 'border-destructive bg-destructive/10')} onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}>
       <input id="file-input" type="file" accept=".zip,.json" className="hidden" onChange={handleInputChange} />
 
       <div className="flex flex-col items-center gap-4">
@@ -161,5 +162,5 @@ export function FileUpload({
             </button>
           </>}
       </div>
-    </div>;
+    </label>;
 }
