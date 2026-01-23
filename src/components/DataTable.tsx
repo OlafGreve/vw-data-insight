@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Info } from 'lucide-react';
 import type { ParsedDataPoint } from '@/types/vehicleData';
 import { format, isValid } from 'date-fns';
@@ -19,6 +19,11 @@ export function DataTable({ data }: DataTableProps) {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(0);
   const pageSize = 50;
+
+  // Reset page when data changes (e.g., after filtering)
+  useEffect(() => {
+    setPage(0);
+  }, [data]);
 
   const sortedData = useMemo(() => {
     return [...data].sort((a, b) => {
