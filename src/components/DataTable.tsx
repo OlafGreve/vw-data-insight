@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Info } from 'lucide-react';
 import type { ParsedDataPoint } from '@/types/vehicleData';
 import { format, isValid } from 'date-fns';
@@ -6,6 +6,7 @@ import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { getFieldDescription, getFieldDescriptionByKey } from '@/lib/dataDictionary';
+import { TableSkeleton } from './TableSkeleton';
 
 interface DataTableProps {
   data: ParsedDataPoint[];
@@ -14,49 +15,61 @@ interface DataTableProps {
 type SortField = 'rowNumber' | 'dataFieldName' | 'value' | 'timestampUtc' | 'category';
 type SortDirection = 'asc' | 'desc';
 
+function sortData(data: ParsedDataPoint[], sortField: SortField, sortDirection: SortDirection): ParsedDataPoint[] {
+  return [...data].sort((a, b) => {
+    let comparison = 0;
+    
+    switch (sortField) {
+      case 'rowNumber':
+        comparison = a.rowNumber - b.rowNumber;
+        break;
+      case 'dataFieldName':
+        comparison = a.dataFieldName.localeCompare(b.dataFieldName);
+        break;
+      case 'value':
+        comparison = String(a.rawValue).localeCompare(String(b.rawValue));
+        break;
+      case 'timestampUtc':
+        const aTime = a.timestampUtc && isValid(a.timestampUtc) ? a.timestampUtc.getTime() : 0;
+        const bTime = b.timestampUtc && isValid(b.timestampUtc) ? b.timestampUtc.getTime() : 0;
+        comparison = aTime - bTime;
+        break;
+      case 'category':
+        comparison = a.category.localeCompare(b.category);
+        break;
+    }
+    
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+}
+
 export function DataTable({ data }: DataTableProps) {
   const [sortField, setSortField] = useState<SortField>('timestampUtc');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(0);
+  const [isSorting, setIsSorting] = useState(true);
+  const [sortedData, setSortedData] = useState<ParsedDataPoint[]>([]);
   const pageSize = 50;
+
+  // Deferred sorting - runs after UI can show loading state
+  useEffect(() => {
+    setIsSorting(true);
+    
+    const frame = requestAnimationFrame(() => {
+      const sorted = sortData(data, sortField, sortDirection);
+      setSortedData(sorted);
+      setIsSorting(false);
+    });
+    
+    return () => cancelAnimationFrame(frame);
+  }, [data, sortField, sortDirection]);
 
   // Reset page when data changes (e.g., after filtering)
   useEffect(() => {
     setPage(0);
   }, [data]);
 
-  const sortedData = useMemo(() => {
-    return [...data].sort((a, b) => {
-      let comparison = 0;
-      
-      switch (sortField) {
-        case 'rowNumber':
-          comparison = a.rowNumber - b.rowNumber;
-          break;
-        case 'dataFieldName':
-          comparison = a.dataFieldName.localeCompare(b.dataFieldName);
-          break;
-        case 'value':
-          comparison = String(a.rawValue).localeCompare(String(b.rawValue));
-          break;
-        case 'timestampUtc':
-          const aTime = a.timestampUtc && isValid(a.timestampUtc) ? a.timestampUtc.getTime() : 0;
-          const bTime = b.timestampUtc && isValid(b.timestampUtc) ? b.timestampUtc.getTime() : 0;
-          comparison = aTime - bTime;
-          break;
-        case 'category':
-          comparison = a.category.localeCompare(b.category);
-          break;
-      }
-      
-      return sortDirection === 'asc' ? comparison : -comparison;
-    });
-  }, [data, sortField, sortDirection]);
-
-  const paginatedData = useMemo(() => {
-    const start = page * pageSize;
-    return sortedData.slice(start, start + pageSize);
-  }, [sortedData, page]);
+  const paginatedData = sortedData.slice(page * pageSize, (page + 1) * pageSize);
 
   const totalPages = Math.ceil(data.length / pageSize);
 
@@ -87,6 +100,10 @@ export function DataTable({ data }: DataTableProps) {
       default: return 'bg-muted text-muted-foreground';
     }
   };
+
+  if (isSorting) {
+    return <TableSkeleton />;
+  }
 
   return (
     <div className="glass-card rounded-xl overflow-hidden">

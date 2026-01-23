@@ -10,15 +10,18 @@ import { DataTable } from "@/components/DataTable";
 import { DataCharts } from "@/components/DataCharts";
 import { DataFilters } from "@/components/DataFilters";
 import { ChartsSkeleton } from "@/components/ChartsSkeleton";
+import { TableSkeleton } from "@/components/TableSkeleton";
 import { parseVehicleData, getFieldNamesByFrequency, filterData } from "@/lib/dataParser";
 import { loadDataDictionary } from "@/lib/dataDictionary";
 import type { VehicleDataFile, ParsedDataPoint, DataFilter } from "@/types/vehicleData";
 import forestRoadBeetle from "@/assets/forest-road-beetle.jpg";
+
 const Index = () => {
   const [rawData, setRawData] = useState<VehicleDataFile | null>(null);
   const [activeTab, setActiveTab] = useState("charts");
   const [useLinearTimeScale, setUseLinearTimeScale] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isTableLoading, setIsTableLoading] = useState(false);
   const [filter, setFilter] = useState<DataFilter>({
     dataFieldNames: [],
     startDate: null,
@@ -107,7 +110,20 @@ const Index = () => {
           </section> : <div className="container mx-auto px-4 py-6 space-y-6 animate-slide-up">
             <DataFilters filter={filter} onFilterChange={setFilter} fieldsWithFrequency={fieldsWithFrequency} />
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={(value) => {
+              if (value === 'table' && activeTab !== 'table') {
+                setIsTableLoading(true);
+                setActiveTab(value);
+                // Defer to allow skeleton to render
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    setIsTableLoading(false);
+                  });
+                });
+              } else {
+                setActiveTab(value);
+              }
+            }} className="w-full">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <TabsList className="bg-secondary/50 p-1">
                   <TabsTrigger value="charts" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
@@ -167,7 +183,7 @@ const Index = () => {
               </TabsContent>
 
               <TabsContent value="table" className="mt-6">
-                <DataTable data={filteredData} />
+                {isTableLoading ? <TableSkeleton /> : <DataTable data={filteredData} />}
               </TabsContent>
             </Tabs>
 
