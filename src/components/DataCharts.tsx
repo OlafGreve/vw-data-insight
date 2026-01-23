@@ -28,11 +28,33 @@ const CHART_COLORS = [
 
 export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
   const [useLinearTimeScale, setUseLinearTimeScale] = useState(false);
+
+  // Helper function to convert Date objects to numeric timestamps for linear scale
+  const toNumericTimestamps = (chartData: { timestamp: Date; value: number }[]) => {
+    return chartData.map(d => ({
+      ...d,
+      timestamp: d.timestamp.getTime(),
+    }));
+  };
   
-  const socData = useMemo(() => getTimeSeriesData(data, 'currentSOCInPct'), [data]);
-  const rangeData = useMemo(() => getTimeSeriesData(data, 'cruisingRangeElectricInKm'), [data]);
-  const powerData = useMemo(() => getTimeSeriesData(data, 'chargePowerInKW'), [data]);
+  const socDataRaw = useMemo(() => getTimeSeriesData(data, 'currentSOCInPct'), [data]);
+  const rangeDataRaw = useMemo(() => getTimeSeriesData(data, 'cruisingRangeElectricInKm'), [data]);
+  const powerDataRaw = useMemo(() => getTimeSeriesData(data, 'chargePowerInKW'), [data]);
   const mileageData = useMemo(() => getTimeSeriesData(data, 'mileage'), [data]);
+
+  // Convert to numeric timestamps when linear scale is enabled
+  const socData = useMemo(() => 
+    useLinearTimeScale ? toNumericTimestamps(socDataRaw) : socDataRaw, 
+    [socDataRaw, useLinearTimeScale]
+  );
+  const rangeData = useMemo(() => 
+    useLinearTimeScale ? toNumericTimestamps(rangeDataRaw) : rangeDataRaw, 
+    [rangeDataRaw, useLinearTimeScale]
+  );
+  const powerData = useMemo(() => 
+    useLinearTimeScale ? toNumericTimestamps(powerDataRaw) : powerDataRaw, 
+    [powerDataRaw, useLinearTimeScale]
+  );
 
   // Berechne Kilometer pro Tag
   const dailyMileageData = useMemo(() => {
@@ -82,14 +104,17 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
     });
   }, [selectedFields, data]);
 
-  // Daten für zusätzliche Charts
+  // Daten für zusätzliche Charts (with numeric timestamps when linear scale is enabled)
   const additionalChartsData = useMemo(() => {
-    return additionalNumericFields.map((field, index) => ({
-      field,
-      data: getTimeSeriesData(data, field),
-      color: CHART_COLORS[index % CHART_COLORS.length],
-    }));
-  }, [additionalNumericFields, data]);
+    return additionalNumericFields.map((field, index) => {
+      const rawData = getTimeSeriesData(data, field);
+      return {
+        field,
+        data: useLinearTimeScale ? toNumericTimestamps(rawData) : rawData,
+        color: CHART_COLORS[index % CHART_COLORS.length],
+      };
+    });
+  }, [additionalNumericFields, data, useLinearTimeScale]);
 
   const fieldFrequency = useMemo(() => {
     const freq = getFieldFrequency(data);
