@@ -104,7 +104,17 @@ const Index = () => {
               </TabsList>
 
               <TabsContent value="charts" className="mt-6">
-                <DataCharts data={filteredData} selectedFields={filter.dataFieldNames} />
+                <DataCharts 
+                  data={filteredData} 
+                  selectedFields={filter.dataFieldNames}
+                  onDateRangeSelect={(startDate, endDate) => {
+                    setFilter(prev => ({
+                      ...prev,
+                      startDate,
+                      endDate,
+                    }));
+                  }}
+                />
               </TabsContent>
 
               <TabsContent value="table" className="mt-6">
