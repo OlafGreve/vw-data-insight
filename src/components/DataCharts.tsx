@@ -1,17 +1,24 @@
-import React, { useMemo, useRef } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, Brush } from 'recharts';
+import React, { useMemo, useState, useCallback } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
 import type { ParsedDataPoint } from '@/types/vehicleData';
 import { getTimeSeriesData, getFieldFrequency } from '@/lib/dataParser';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Battery, Gauge, Zap, Route, Clock, SlidersHorizontal } from 'lucide-react';
+import { Battery, Gauge, Zap, Route, Clock, CalendarRange } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  ContextMenuSeparator,
+} from '@/components/ui/context-menu';
 
 interface DataChartsProps {
   data: ParsedDataPoint[];
   selectedFields?: string[];
-  onDateRangeSelect?: (startDate: Date, endDate: Date) => void;
+  onDateRangeSelect?: (startDate: Date | null, endDate: Date | null, mode: 'start' | 'end') => void;
 }
 
 // Vordefinierte Felder, die immer angezeigt werden
@@ -28,10 +35,28 @@ const CHART_COLORS = [
 ];
 
 export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: DataChartsProps) {
-  const [useLinearTimeScale, setUseLinearTimeScale] = React.useState(false);
-  
-  // Debounce ref to prevent rapid filter updates
-  const brushDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [useLinearTimeScale, setUseLinearTimeScale] = useState(false);
+  const [activeTimestamp, setActiveTimestamp] = useState<Date | null>(null);
+
+  // Track the currently hovered timestamp for context menu
+  const handleChartMouseMove = useCallback((e: any) => {
+    if (e?.activePayload?.[0]?.payload?.timestamp) {
+      const ts = e.activePayload[0].payload.timestamp;
+      setActiveTimestamp(typeof ts === 'number' ? new Date(ts) : ts);
+    }
+  }, []);
+
+  const handleSetStartDate = useCallback(() => {
+    if (activeTimestamp && onDateRangeSelect) {
+      onDateRangeSelect(activeTimestamp, null, 'start');
+    }
+  }, [activeTimestamp, onDateRangeSelect]);
+
+  const handleSetEndDate = useCallback(() => {
+    if (activeTimestamp && onDateRangeSelect) {
+      onDateRangeSelect(null, activeTimestamp, 'end');
+    }
+  }, [activeTimestamp, onDateRangeSelect]);
 
   // Helper function to convert Date objects to numeric timestamps for linear scale
   const toNumericTimestamps = (chartData: { timestamp: Date; value: number }[]) => {
@@ -45,33 +70,6 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
   const rangeDataRaw = useMemo(() => getTimeSeriesData(data, 'cruisingRangeElectricInKm'), [data]);
   const powerDataRaw = useMemo(() => getTimeSeriesData(data, 'chargePowerInKW'), [data]);
   const mileageData = useMemo(() => getTimeSeriesData(data, 'mileage'), [data]);
-
-  // Brush change handler - converts indices to dates and calls parent callback
-  const handleBrushChange = (brushData: { startIndex?: number; endIndex?: number }) => {
-    if (brushData.startIndex === undefined || brushData.endIndex === undefined) return;
-    
-    // Clear any pending debounce
-    if (brushDebounceRef.current) {
-      clearTimeout(brushDebounceRef.current);
-    }
-    
-    // Debounce to avoid excessive filter updates while dragging
-    brushDebounceRef.current = setTimeout(() => {
-      // Use raw SOC data as reference for timestamps (most complete dataset)
-      const sourceData = socDataRaw.length > 0 ? socDataRaw : rangeDataRaw;
-      if (sourceData.length === 0) return;
-      
-      const startTimestamp = sourceData[brushData.startIndex!]?.timestamp;
-      const endTimestamp = sourceData[brushData.endIndex!]?.timestamp;
-      
-      if (startTimestamp && endTimestamp) {
-        onDateRangeSelect?.(
-          new Date(startTimestamp),
-          new Date(endTimestamp)
-        );
-      }
-    }, 300);
-  };
 
   // Convert to numeric timestamps when linear scale is enabled
   const socData = useMemo(() => 
@@ -91,7 +89,6 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
   const dailyMileageData = useMemo(() => {
     if (mileageData.length === 0) return [];
     
-    // Gruppiere nach Tag und finde min/max Kilometerstand pro Tag
     const dailyStats: Record<string, { min: number; max: number; date: Date }> = {};
     
     mileageData.forEach(({ timestamp, value }) => {
@@ -104,17 +101,15 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
       }
     });
     
-    // Sortiere nach Datum und berechne km pro Tag
     const sortedDays = Object.entries(dailyStats)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([dateKey, stats]) => ({
         date: stats.date,
         dateKey,
-        kmDriven: stats.max - stats.min, // Innerhalb des Tages gefahrene km
+        kmDriven: stats.max - stats.min,
         maxMileage: stats.max,
       }));
     
-    // Berechne auch km zwischen Tagen (falls Auto über Nacht gefahren wurde)
     return sortedDays.map((day, index) => {
       if (index === 0) {
         return { date: day.date, dateKey: day.dateKey, km: day.kmDriven };
@@ -129,13 +124,12 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
   const additionalNumericFields = useMemo(() => {
     return selectedFields.filter(field => {
       if (CORE_FIELDS.includes(field)) return false;
-      // Prüfen ob das Feld numerische Daten hat
       const fieldData = data.filter(d => d.dataFieldName === field && typeof d.value === 'number');
       return fieldData.length > 0;
     });
   }, [selectedFields, data]);
 
-  // Daten für zusätzliche Charts (with numeric timestamps when linear scale is enabled)
+  // Daten für zusätzliche Charts
   const additionalChartsData = useMemo(() => {
     return additionalNumericFields.map((field, index) => {
       const rawData = getTimeSeriesData(data, field);
@@ -202,6 +196,29 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
     power: { color: 'hsl(45, 90%, 55%)', label: 'Ladeleistung' },
   };
 
+  // Wrapper component for charts with context menu
+  const ChartWithContextMenu = ({ children }: { children: React.ReactNode }) => (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div className="cursor-crosshair">{children}</div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-56">
+        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+          {activeTimestamp ? format(activeTimestamp, 'dd.MM.yyyy HH:mm:ss', { locale: de }) : 'Kein Zeitpunkt ausgewählt'}
+        </div>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={handleSetStartDate} disabled={!activeTimestamp}>
+          <CalendarRange className="mr-2 h-4 w-4" />
+          Als Startdatum setzen
+        </ContextMenuItem>
+        <ContextMenuItem onClick={handleSetEndDate} disabled={!activeTimestamp}>
+          <CalendarRange className="mr-2 h-4 w-4" />
+          Als Enddatum setzen
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
@@ -236,7 +253,7 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
         />
       </div>
 
-      {/* Linear Time Scale Toggle & Brush Hint */}
+      {/* Linear Time Scale Toggle & Context Menu Hint */}
       <div className="glass-card rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-3">
           <Clock className="w-5 h-5 text-muted-foreground" />
@@ -255,130 +272,128 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground ml-8">
-          <SlidersHorizontal className="w-3.5 h-3.5" />
-          <span>Tipp: Ziehe die Ränder oder den Bereich im Schieberegler unter dem ersten Diagramm, um den Zeitfilter zu setzen</span>
+          <CalendarRange className="w-3.5 h-3.5" />
+          <span>Tipp: Rechtsklick (oder langes Tippen) auf einen Datenpunkt, um Start- oder Enddatum für den Filter zu setzen</span>
         </div>
       </div>
 
       {/* Charts Grid */}
       <div className="grid md:grid-cols-2 gap-6">
-        {/* SOC Chart with Brush */}
+        {/* SOC Chart */}
         {socData.length > 0 && (
-          <ChartCard title="Ladezustand über Zeit" subtitle="Batterieladezustand in % – Schieberegler zum Filtern">
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={socData}>
-                <defs>
-                  <linearGradient id="socGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={chartConfig.soc.color} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={chartConfig.soc.color} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
-                <XAxis {...getTimeAxisProps()} />
-                <YAxis 
-                  domain={[0, 100]}
-                  stroke="hsl(220, 10%, 55%)"
-                  fontSize={11}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(220, 15%, 16%)', 
-                    border: '1px solid hsl(220, 12%, 25%)',
-                    borderRadius: '8px',
-                    color: 'hsl(220, 10%, 92%)'
-                  }}
-                  labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
-                  formatter={(value: number) => [`${value}%`, 'Ladezustand']}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke={chartConfig.soc.color} 
-                  fill="url(#socGradient)" 
-                  strokeWidth={2}
-                />
-                <Brush
-                  dataKey="timestamp"
-                  height={40}
-                  stroke="hsl(185, 70%, 50%)"
-                  fill="hsl(220, 15%, 12%)"
-                  tickFormatter={(value) => formatTimestamp(value)}
-                  onChange={handleBrushChange}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          <ChartCard title="Ladezustand über Zeit" subtitle="Batterieladezustand in %">
+            <ChartWithContextMenu>
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={socData} onMouseMove={handleChartMouseMove}>
+                  <defs>
+                    <linearGradient id="socGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={chartConfig.soc.color} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={chartConfig.soc.color} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
+                  <XAxis {...getTimeAxisProps()} />
+                  <YAxis 
+                    domain={[0, 100]}
+                    stroke="hsl(220, 10%, 55%)"
+                    fontSize={11}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(220, 15%, 16%)', 
+                      border: '1px solid hsl(220, 12%, 25%)',
+                      borderRadius: '8px',
+                      color: 'hsl(220, 10%, 92%)'
+                    }}
+                    labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
+                    formatter={(value: number) => [`${value}%`, 'Ladezustand']}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke={chartConfig.soc.color} 
+                    fill="url(#socGradient)" 
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartWithContextMenu>
           </ChartCard>
         )}
 
         {/* Range Chart */}
         {rangeData.length > 0 && (
           <ChartCard title="Reichweite über Zeit" subtitle="Elektrische Reichweite in km">
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={rangeData}>
-                <defs>
-                  <linearGradient id="rangeGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={chartConfig.range.color} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={chartConfig.range.color} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
-                <XAxis {...getTimeAxisProps()} />
-                <YAxis 
-                  stroke="hsl(220, 10%, 55%)"
-                  fontSize={11}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(220, 15%, 16%)', 
-                    border: '1px solid hsl(220, 12%, 25%)',
-                    borderRadius: '8px',
-                    color: 'hsl(220, 10%, 92%)'
-                  }}
-                  labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
-                  formatter={(value: number) => [`${value} km`, 'Reichweite']}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke={chartConfig.range.color} 
-                  fill="url(#rangeGradient)" 
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <ChartWithContextMenu>
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={rangeData} onMouseMove={handleChartMouseMove}>
+                  <defs>
+                    <linearGradient id="rangeGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={chartConfig.range.color} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={chartConfig.range.color} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
+                  <XAxis {...getTimeAxisProps()} />
+                  <YAxis 
+                    stroke="hsl(220, 10%, 55%)"
+                    fontSize={11}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(220, 15%, 16%)', 
+                      border: '1px solid hsl(220, 12%, 25%)',
+                      borderRadius: '8px',
+                      color: 'hsl(220, 10%, 92%)'
+                    }}
+                    labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
+                    formatter={(value: number) => [`${value} km`, 'Reichweite']}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke={chartConfig.range.color} 
+                    fill="url(#rangeGradient)" 
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartWithContextMenu>
           </ChartCard>
         )}
 
         {/* Power Chart */}
         {powerData.length > 0 && (
           <ChartCard title="Ladeleistung" subtitle="Aktuelle Ladeleistung in kW">
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={powerData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
-                <XAxis {...getTimeAxisProps()} />
-                <YAxis 
-                  stroke="hsl(220, 10%, 55%)"
-                  fontSize={11}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(220, 15%, 16%)', 
-                    border: '1px solid hsl(220, 12%, 25%)',
-                    borderRadius: '8px',
-                    color: 'hsl(220, 10%, 92%)'
-                  }}
-                  labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
-                  formatter={(value: number) => [`${value} kW`, 'Ladeleistung']}
-                />
-                <Line 
-                  type="stepAfter" 
-                  dataKey="value" 
-                  stroke={chartConfig.power.color} 
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <ChartWithContextMenu>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={powerData} onMouseMove={handleChartMouseMove}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
+                  <XAxis {...getTimeAxisProps()} />
+                  <YAxis 
+                    stroke="hsl(220, 10%, 55%)"
+                    fontSize={11}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(220, 15%, 16%)', 
+                      border: '1px solid hsl(220, 12%, 25%)',
+                      borderRadius: '8px',
+                      color: 'hsl(220, 10%, 92%)'
+                    }}
+                    labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
+                    formatter={(value: number) => [`${value} kW`, 'Ladeleistung']}
+                  />
+                  <Line 
+                    type="stepAfter" 
+                    dataKey="value" 
+                    stroke={chartConfig.power.color} 
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartWithContextMenu>
           </ChartCard>
         )}
 
@@ -426,39 +441,41 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
             title={field} 
             subtitle={`${chartData.length} Datenpunkte`}
           >
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={color} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
-                <XAxis {...getTimeAxisProps()} />
-                <YAxis 
-                  stroke="hsl(220, 10%, 55%)"
-                  fontSize={11}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(220, 15%, 16%)', 
-                    border: '1px solid hsl(220, 12%, 25%)',
-                    borderRadius: '8px',
-                    color: 'hsl(220, 10%, 92%)'
-                  }}
-                  labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
-                  formatter={(value: number) => [value.toLocaleString('de-DE'), field]}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke={color} 
-                  fill={`url(#gradient-${index})`}
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <ChartWithContextMenu>
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={chartData} onMouseMove={handleChartMouseMove}>
+                  <defs>
+                    <linearGradient id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={color} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
+                  <XAxis {...getTimeAxisProps()} />
+                  <YAxis 
+                    stroke="hsl(220, 10%, 55%)"
+                    fontSize={11}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(220, 15%, 16%)', 
+                      border: '1px solid hsl(220, 12%, 25%)',
+                      borderRadius: '8px',
+                      color: 'hsl(220, 10%, 92%)'
+                    }}
+                    labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
+                    formatter={(value: number) => [value.toLocaleString('de-DE'), field]}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke={color} 
+                    fill={`url(#gradient-${index})`}
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartWithContextMenu>
           </ChartCard>
         ))}
 

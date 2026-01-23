@@ -107,11 +107,11 @@ const Index = () => {
                 <DataCharts 
                   data={filteredData} 
                   selectedFields={filter.dataFieldNames}
-                  onDateRangeSelect={(startDate, endDate) => {
+                  onDateRangeSelect={(startDate, endDate, mode) => {
                     setFilter(prev => ({
                       ...prev,
-                      startDate,
-                      endDate,
+                      startDate: mode === 'start' ? startDate : prev.startDate,
+                      endDate: mode === 'end' ? endDate : prev.endDate,
                     }));
                   }}
                 />
