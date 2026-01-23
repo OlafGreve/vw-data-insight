@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
 import type { ParsedDataPoint } from '@/types/vehicleData';
 import { getTimeSeriesData, getFieldFrequency } from '@/lib/dataParser';
@@ -36,27 +36,27 @@ const CHART_COLORS = [
 
 export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: DataChartsProps) {
   const [useLinearTimeScale, setUseLinearTimeScale] = useState(false);
-  const [activeTimestamp, setActiveTimestamp] = useState<Date | null>(null);
+  const activeTimestampRef = useRef<Date | null>(null);
 
-  // Track the currently hovered timestamp for context menu
+  // Track the currently hovered timestamp for context menu (no re-render)
   const handleChartMouseMove = useCallback((e: any) => {
     if (e?.activePayload?.[0]?.payload?.timestamp) {
       const ts = e.activePayload[0].payload.timestamp;
-      setActiveTimestamp(typeof ts === 'number' ? new Date(ts) : ts);
+      activeTimestampRef.current = typeof ts === 'number' ? new Date(ts) : ts;
     }
   }, []);
 
   const handleSetStartDate = useCallback(() => {
-    if (activeTimestamp && onDateRangeSelect) {
-      onDateRangeSelect(activeTimestamp, null, 'start');
+    if (activeTimestampRef.current && onDateRangeSelect) {
+      onDateRangeSelect(activeTimestampRef.current, null, 'start');
     }
-  }, [activeTimestamp, onDateRangeSelect]);
+  }, [onDateRangeSelect]);
 
   const handleSetEndDate = useCallback(() => {
-    if (activeTimestamp && onDateRangeSelect) {
-      onDateRangeSelect(null, activeTimestamp, 'end');
+    if (activeTimestampRef.current && onDateRangeSelect) {
+      onDateRangeSelect(null, activeTimestampRef.current, 'end');
     }
-  }, [activeTimestamp, onDateRangeSelect]);
+  }, [onDateRangeSelect]);
 
   // Helper function to convert Date objects to numeric timestamps for linear scale
   const toNumericTimestamps = (chartData: { timestamp: Date; value: number }[]) => {
@@ -204,14 +204,14 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
       </ContextMenuTrigger>
       <ContextMenuContent className="w-56">
         <div className="px-2 py-1.5 text-xs text-muted-foreground">
-          {activeTimestamp ? format(activeTimestamp, 'dd.MM.yyyy HH:mm:ss', { locale: de }) : 'Kein Zeitpunkt ausgewählt'}
+          {activeTimestampRef.current ? format(activeTimestampRef.current, 'dd.MM.yyyy HH:mm:ss', { locale: de }) : 'Kein Zeitpunkt ausgewählt'}
         </div>
         <ContextMenuSeparator />
-        <ContextMenuItem onClick={handleSetStartDate} disabled={!activeTimestamp}>
+        <ContextMenuItem onClick={handleSetStartDate}>
           <CalendarRange className="mr-2 h-4 w-4" />
           Als Startdatum setzen
         </ContextMenuItem>
-        <ContextMenuItem onClick={handleSetEndDate} disabled={!activeTimestamp}>
+        <ContextMenuItem onClick={handleSetEndDate}>
           <CalendarRange className="mr-2 h-4 w-4" />
           Als Enddatum setzen
         </ContextMenuItem>
