@@ -1,12 +1,10 @@
-import React, { useMemo, useState, useCallback, useRef } from 'react';
+import React, { useMemo, useCallback, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
 import type { ParsedDataPoint } from '@/types/vehicleData';
 import { getTimeSeriesData, getFieldFrequency } from '@/lib/dataParser';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Battery, Gauge, Zap, Route, Clock, CalendarRange } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+import { Battery, Gauge, Zap, Route, CalendarRange } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -18,6 +16,7 @@ import {
 interface DataChartsProps {
   data: ParsedDataPoint[];
   selectedFields?: string[];
+  useLinearTimeScale?: boolean;
   onDateRangeSelect?: (startDate: Date | null, endDate: Date | null, mode: 'start' | 'end') => void;
 }
 
@@ -34,8 +33,7 @@ const CHART_COLORS = [
   'hsl(60, 70%, 50%)',
 ];
 
-export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: DataChartsProps) {
-  const [useLinearTimeScale, setUseLinearTimeScale] = useState(false);
+export function DataCharts({ data, selectedFields = [], useLinearTimeScale = false, onDateRangeSelect }: DataChartsProps) {
   const activeTimestampRef = useRef<Date | null>(null);
 
   // Track the currently hovered timestamp for context menu - uses ref to avoid re-renders
@@ -251,30 +249,6 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
           unit="km"
           color="accent"
         />
-      </div>
-
-      {/* Linear Time Scale Toggle & Context Menu Hint */}
-      <div className="glass-card rounded-xl p-4 space-y-3">
-        <div className="flex items-center gap-3">
-          <Clock className="w-5 h-5 text-muted-foreground" />
-          <div className="flex items-center gap-3">
-            <Switch
-              id="linear-time-scale"
-              checked={useLinearTimeScale}
-              onCheckedChange={setUseLinearTimeScale}
-            />
-            <Label htmlFor="linear-time-scale" className="cursor-pointer">
-              <span className="font-medium">Lineare Zeitachse</span>
-              <span className="text-xs text-muted-foreground ml-2">
-                (Abstände proportional zur Zeit)
-              </span>
-            </Label>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground ml-8">
-          <CalendarRange className="w-3.5 h-3.5" />
-          <span>Tipp: Rechtsklick (oder langes Tippen) auf einen Datenpunkt, um Start- oder Enddatum für den Filter zu setzen</span>
-        </div>
       </div>
 
       {/* Charts Grid */}
