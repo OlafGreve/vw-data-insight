@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
 import type { ParsedDataPoint } from '@/types/vehicleData';
 import { getTimeSeriesData, getFieldFrequency } from '@/lib/dataParser';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Battery, Gauge, Zap, Route, TrendingUp } from 'lucide-react';
+import { Battery, Gauge, Zap, Route, Clock } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface DataChartsProps {
   data: ParsedDataPoint[];
@@ -25,6 +27,8 @@ const CHART_COLORS = [
 ];
 
 export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
+  const [useLinearTimeScale, setUseLinearTimeScale] = useState(false);
+  
   const socData = useMemo(() => getTimeSeriesData(data, 'currentSOCInPct'), [data]);
   const rangeData = useMemo(() => getTimeSeriesData(data, 'cruisingRangeElectricInKm'), [data]);
   const powerData = useMemo(() => getTimeSeriesData(data, 'chargePowerInKW'), [data]);
@@ -110,7 +114,31 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
     return latest;
   }, [data]);
 
-  const formatTimestamp = (timestamp: Date) => format(timestamp, 'dd.MM. HH:mm', { locale: de });
+  const formatTimestamp = (timestamp: Date | number) => {
+    const date = typeof timestamp === 'number' ? new Date(timestamp) : timestamp;
+    return format(date, 'dd.MM. HH:mm', { locale: de });
+  };
+
+  // Common XAxis props for time-series charts
+  const getTimeAxisProps = () => {
+    if (useLinearTimeScale) {
+      return {
+        dataKey: "timestamp",
+        type: "number" as const,
+        scale: "time" as const,
+        domain: ['dataMin', 'dataMax'] as [string, string],
+        tickFormatter: (value: number) => formatTimestamp(value),
+        stroke: "hsl(220, 10%, 55%)",
+        fontSize: 11,
+      };
+    }
+    return {
+      dataKey: "timestamp",
+      tickFormatter: formatTimestamp,
+      stroke: "hsl(220, 10%, 55%)",
+      fontSize: 11,
+    };
+  };
 
   const chartConfig = {
     soc: { color: 'hsl(185, 70%, 50%)', label: 'Ladezustand' },
@@ -152,6 +180,24 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
         />
       </div>
 
+      {/* Linear Time Scale Toggle */}
+      <div className="glass-card rounded-xl p-4 flex items-center gap-3">
+        <Clock className="w-5 h-5 text-muted-foreground" />
+        <div className="flex items-center gap-3">
+          <Switch
+            id="linear-time-scale"
+            checked={useLinearTimeScale}
+            onCheckedChange={setUseLinearTimeScale}
+          />
+          <Label htmlFor="linear-time-scale" className="cursor-pointer">
+            <span className="font-medium">Lineare Zeitachse</span>
+            <span className="text-xs text-muted-foreground ml-2">
+              (Abstände proportional zur Zeit)
+            </span>
+          </Label>
+        </div>
+      </div>
+
       {/* Charts Grid */}
       <div className="grid md:grid-cols-2 gap-6">
         {/* SOC Chart */}
@@ -166,14 +212,9 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={formatTimestamp}
-                  stroke="hsl(220, 10%, 55%)"
-                  fontSize={11}
-                />
+                <XAxis {...getTimeAxisProps()} />
                 <YAxis 
-                  domain={[0, 100]} 
+                  domain={[0, 100]}
                   stroke="hsl(220, 10%, 55%)"
                   fontSize={11}
                 />
@@ -211,12 +252,7 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={formatTimestamp}
-                  stroke="hsl(220, 10%, 55%)"
-                  fontSize={11}
-                />
+                <XAxis {...getTimeAxisProps()} />
                 <YAxis 
                   stroke="hsl(220, 10%, 55%)"
                   fontSize={11}
@@ -249,12 +285,7 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={powerData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={formatTimestamp}
-                  stroke="hsl(220, 10%, 55%)"
-                  fontSize={11}
-                />
+                <XAxis {...getTimeAxisProps()} />
                 <YAxis 
                   stroke="hsl(220, 10%, 55%)"
                   fontSize={11}
@@ -334,12 +365,7 @@ export function DataCharts({ data, selectedFields = [] }: DataChartsProps) {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={formatTimestamp}
-                  stroke="hsl(220, 10%, 55%)"
-                  fontSize={11}
-                />
+                <XAxis {...getTimeAxisProps()} />
                 <YAxis 
                   stroke="hsl(220, 10%, 55%)"
                   fontSize={11}
