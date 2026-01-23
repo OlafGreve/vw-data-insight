@@ -38,7 +38,7 @@ export function DataCharts({ data, selectedFields = [], onDateRangeSelect }: Dat
   const [useLinearTimeScale, setUseLinearTimeScale] = useState(false);
   const activeTimestampRef = useRef<Date | null>(null);
 
-  // Track the currently hovered timestamp for context menu (no re-render)
+  // Track the currently hovered timestamp for context menu - uses ref to avoid re-renders
   const handleChartMouseMove = useCallback((e: any) => {
     if (e?.activePayload?.[0]?.payload?.timestamp) {
       const ts = e.activePayload[0].payload.timestamp;
