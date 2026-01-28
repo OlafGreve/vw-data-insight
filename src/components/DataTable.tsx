@@ -27,7 +27,31 @@ function sortData(data: ParsedDataPoint[], sortField: SortField, sortDirection: 
         comparison = a.dataFieldName.localeCompare(b.dataFieldName);
         break;
       case 'value':
-        comparison = String(a.rawValue).localeCompare(String(b.rawValue));
+        // 1. Null-Werte ans Ende
+        if (a.value === null && b.value === null) {
+          comparison = 0;
+        } else if (a.value === null) {
+          comparison = 1;
+        } else if (b.value === null) {
+          comparison = -1;
+        }
+        // 2. Gleiche Typen: typspezifisch sortieren
+        else if (typeof a.value === 'number' && typeof b.value === 'number') {
+          comparison = a.value - b.value;
+        } else if (typeof a.value === 'boolean' && typeof b.value === 'boolean') {
+          comparison = (a.value === b.value) ? 0 : (a.value ? -1 : 1);
+        }
+        // 3. Unterschiedliche Typen: nach Typ gruppieren, dann String-Vergleich
+        else {
+          const typeOrder = { number: 1, boolean: 2, string: 3 };
+          const aType = typeof a.value as keyof typeof typeOrder;
+          const bType = typeof b.value as keyof typeof typeOrder;
+          if (aType !== bType) {
+            comparison = typeOrder[aType] - typeOrder[bType];
+          } else {
+            comparison = String(a.value).localeCompare(String(b.value));
+          }
+        }
         break;
       case 'timestampUtc':
         const aTime = a.timestampUtc && isValid(a.timestampUtc) ? a.timestampUtc.getTime() : 0;
