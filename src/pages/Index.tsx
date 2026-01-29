@@ -4,6 +4,7 @@ import { BarChart3, Table2, ExternalLink, Info } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { format } from "date-fns";
 import { Header } from "@/components/Header";
 import { FileUpload } from "@/components/FileUpload";
 import { DataTable } from "@/components/DataTable";
@@ -13,6 +14,7 @@ import { ChartsSkeleton } from "@/components/ChartsSkeleton";
 import { TableSkeleton } from "@/components/TableSkeleton";
 import { parseVehicleData, getFieldNamesByFrequency, filterData } from "@/lib/dataParser";
 import { loadDataDictionary } from "@/lib/dataDictionary";
+import { exportFilteredData, downloadAsJson } from "@/lib/dataExporter";
 import type { VehicleDataFile, ParsedDataPoint, DataFilter } from "@/types/vehicleData";
 import forestRoadBeetle from "@/assets/forest-road-beetle.jpg";
 
@@ -56,6 +58,16 @@ const Index = () => {
       endDate: null,
       searchTerm: ""
     });
+  };
+
+  const handleExport = () => {
+    if (!rawData) return;
+    
+    const exportData = exportFilteredData(rawData, filteredData);
+    const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm');
+    const filename = `vw-daten-export_${rawData.vin}_${timestamp}.json`;
+    
+    downloadAsJson(exportData, filename);
   };
   return <div className="min-h-screen bg-background">
       <Header vin={rawData?.vin} dataCount={parsedData.length} />
@@ -108,7 +120,13 @@ const Index = () => {
               </div>
             </div>
           </section> : <div className="container mx-auto px-4 py-6 space-y-6 animate-slide-up">
-            <DataFilters filter={filter} onFilterChange={setFilter} fieldsWithFrequency={fieldsWithFrequency} />
+            <DataFilters 
+              filter={filter} 
+              onFilterChange={setFilter} 
+              fieldsWithFrequency={fieldsWithFrequency}
+              onExport={handleExport}
+              filteredCount={filteredData.length}
+            />
 
             <Tabs value={activeTab} onValueChange={(value) => {
               if (value === 'table' && activeTab !== 'table') {

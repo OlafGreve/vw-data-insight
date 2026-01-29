@@ -1,4 +1,4 @@
-import { Search, Filter, X, Check, Info, CalendarIcon } from 'lucide-react';
+import { Search, Filter, X, Check, Info, CalendarIcon, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -15,9 +15,11 @@ interface DataFiltersProps {
   filter: DataFilter;
   onFilterChange: (filter: DataFilter) => void;
   fieldsWithFrequency: { name: string; count: number }[];
+  onExport?: () => void;
+  filteredCount?: number;
 }
 
-export function DataFilters({ filter, onFilterChange, fieldsWithFrequency }: DataFiltersProps) {
+export function DataFilters({ filter, onFilterChange, fieldsWithFrequency, onExport, filteredCount }: DataFiltersProps) {
   const hasActiveFilters = filter.dataFieldNames.length > 0 || filter.searchTerm || filter.startDate || filter.endDate;
 
   const clearFilters = () => {
@@ -51,15 +53,28 @@ export function DataFilters({ filter, onFilterChange, fieldsWithFrequency }: Dat
           <Filter className="w-4 h-4 text-primary" />
           <span className="font-display font-medium text-sm">Filter</span>
         </div>
-        {hasActiveFilters && (
-          <button
-            onClick={clearFilters}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <X className="w-3 h-3" />
-            Zurücksetzen
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-3 h-3" />
+              Zurücksetzen
+            </button>
+          )}
+          {onExport && filteredCount !== undefined && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExport}
+              className="h-7 text-xs gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export ({filteredCount.toLocaleString('de-DE')})
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
