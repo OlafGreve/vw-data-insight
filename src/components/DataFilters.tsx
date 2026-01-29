@@ -170,6 +170,7 @@ export function DataFilters({ filter, onFilterChange, fieldsWithFrequency, onExp
               mode="single"
               selected={filter.startDate || undefined}
               onSelect={(date) => onFilterChange({ ...filter, startDate: date || null })}
+              defaultMonth={filter.startDate || undefined}
               initialFocus
               className="pointer-events-auto"
               locale={de}
@@ -196,6 +197,7 @@ export function DataFilters({ filter, onFilterChange, fieldsWithFrequency, onExp
               mode="single"
               selected={filter.endDate || undefined}
               onSelect={(date) => onFilterChange({ ...filter, endDate: date || null })}
+              defaultMonth={filter.endDate || undefined}
               initialFocus
               className="pointer-events-auto"
               locale={de}
