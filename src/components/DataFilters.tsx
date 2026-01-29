@@ -63,7 +63,7 @@ export function DataFilters({ filter, onFilterChange, fieldsWithFrequency, onExp
               Zurücksetzen
             </button>
           )}
-          {onExport && filteredCount !== undefined && (
+          {hasActiveFilters && onExport && filteredCount !== undefined && (
             <Button
               variant="outline"
               size="sm"
