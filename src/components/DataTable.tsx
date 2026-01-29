@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Info } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Info, Search } from 'lucide-react';
 import type { ParsedDataPoint } from '@/types/vehicleData';
 import { format, isValid } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { getFieldDescription, getFieldDescriptionByKey } from '@/lib/dataDictionary';
 import { TableSkeleton } from './TableSkeleton';
+import { TableSearch } from './TableSearch';
+import { Button } from '@/components/ui/button';
 
 interface DataTableProps {
   data: ParsedDataPoint[];
@@ -14,6 +16,11 @@ interface DataTableProps {
 
 type SortField = 'rowNumber' | 'dataFieldName' | 'value' | 'timestampUtc' | 'category';
 type SortDirection = 'asc' | 'desc';
+
+interface SearchMatch {
+  dataIndex: number;
+  field: string;
+}
 
 function sortData(data: ParsedDataPoint[], sortField: SortField, sortDirection: SortDirection): ParsedDataPoint[] {
   return [...data].sort((a, b) => {
@@ -67,12 +74,29 @@ function sortData(data: ParsedDataPoint[], sortField: SortField, sortDirection: 
   });
 }
 
+function getRowSearchableText(row: ParsedDataPoint): string {
+  const timestamp = row.timestampUtc && isValid(row.timestampUtc)
+    ? format(row.timestampUtc, 'dd.MM.yyyy HH:mm:ss', { locale: de })
+    : '';
+  return [
+    String(row.rowNumber),
+    row.category,
+    row.dataFieldName,
+    row.value === null ? 'null' : String(row.value),
+    timestamp
+  ].join(' ').toLowerCase();
+}
+
 export function DataTable({ data }: DataTableProps) {
   const [sortField, setSortField] = useState<SortField>('timestampUtc');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(0);
   const [isSorting, setIsSorting] = useState(true);
   const [sortedData, setSortedData] = useState<ParsedDataPoint[]>([]);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const tableRef = useRef<HTMLDivElement>(null);
   const pageSize = 50;
 
   // Deferred sorting - runs after UI can show loading state
@@ -93,9 +117,98 @@ export function DataTable({ data }: DataTableProps) {
     setPage(0);
   }, [data]);
 
-  const paginatedData = sortedData.slice(page * pageSize, (page + 1) * pageSize);
+  // Find all matches in sorted data
+  const searchMatches = useMemo(() => {
+    if (!searchTerm.trim()) return [];
+    
+    const term = searchTerm.toLowerCase();
+    const matches: number[] = [];
+    
+    sortedData.forEach((row, index) => {
+      const searchableText = getRowSearchableText(row);
+      if (searchableText.includes(term)) {
+        matches.push(index);
+      }
+    });
+    
+    return matches;
+  }, [sortedData, searchTerm]);
 
-  const totalPages = Math.ceil(data.length / pageSize);
+  // Reset current match when search changes
+  useEffect(() => {
+    setCurrentMatchIndex(0);
+  }, [searchTerm]);
+
+  // Navigate to current match's page
+  useEffect(() => {
+    if (searchMatches.length > 0 && currentMatchIndex < searchMatches.length) {
+      const matchDataIndex = searchMatches[currentMatchIndex];
+      const targetPage = Math.floor(matchDataIndex / pageSize);
+      setPage(targetPage);
+    }
+  }, [searchMatches, currentMatchIndex, pageSize]);
+
+  const handleSearch = useCallback((term: string) => {
+    setSearchTerm(term);
+  }, []);
+
+  const handleNavigate = useCallback((direction: 'prev' | 'next') => {
+    if (searchMatches.length === 0) return;
+    
+    setCurrentMatchIndex(prev => {
+      if (direction === 'next') {
+        return (prev + 1) % searchMatches.length;
+      } else {
+        return (prev - 1 + searchMatches.length) % searchMatches.length;
+      }
+    });
+  }, [searchMatches.length]);
+
+  const handleCloseSearch = useCallback(() => {
+    setShowSearch(false);
+    setSearchTerm('');
+    setCurrentMatchIndex(0);
+  }, []);
+
+  // Keyboard shortcut to open search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f' && tableRef.current?.contains(document.activeElement)) {
+        e.preventDefault();
+        setShowSearch(true);
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const paginatedData = sortedData.slice(page * pageSize, (page + 1) * pageSize);
+  const totalPages = Math.ceil(sortedData.length / pageSize);
+
+  // Calculate which rows on current page are matches
+  const currentPageMatchIndices = useMemo(() => {
+    const startIndex = page * pageSize;
+    const endIndex = startIndex + pageSize;
+    
+    return searchMatches
+      .filter(idx => idx >= startIndex && idx < endIndex)
+      .map(idx => idx - startIndex);
+  }, [searchMatches, page, pageSize]);
+
+  // Current highlighted row on page
+  const highlightedRowOnPage = useMemo(() => {
+    if (searchMatches.length === 0 || currentMatchIndex >= searchMatches.length) return -1;
+    
+    const matchDataIndex = searchMatches[currentMatchIndex];
+    const startIndex = page * pageSize;
+    const endIndex = startIndex + pageSize;
+    
+    if (matchDataIndex >= startIndex && matchDataIndex < endIndex) {
+      return matchDataIndex - startIndex;
+    }
+    return -1;
+  }, [searchMatches, currentMatchIndex, page, pageSize]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -125,12 +238,53 @@ export function DataTable({ data }: DataTableProps) {
     }
   };
 
+  // Highlight matching text in a cell
+  const highlightText = (text: string) => {
+    if (!searchTerm.trim()) return text;
+    
+    const term = searchTerm.toLowerCase();
+    const lowerText = text.toLowerCase();
+    const index = lowerText.indexOf(term);
+    
+    if (index === -1) return text;
+    
+    return (
+      <>
+        {text.slice(0, index)}
+        <mark className="bg-primary/30 text-inherit rounded px-0.5">{text.slice(index, index + searchTerm.length)}</mark>
+        {text.slice(index + searchTerm.length)}
+      </>
+    );
+  };
+
   if (isSorting) {
     return <TableSkeleton />;
   }
 
   return (
-    <div className="glass-card rounded-xl overflow-hidden">
+    <div ref={tableRef} className="glass-card rounded-xl overflow-hidden" tabIndex={-1}>
+      {showSearch ? (
+        <TableSearch
+          onSearch={handleSearch}
+          matchCount={searchMatches.length}
+          currentMatch={searchMatches.length > 0 ? currentMatchIndex + 1 : 0}
+          onNavigate={handleNavigate}
+          onClose={handleCloseSearch}
+        />
+      ) : (
+        <div className="flex items-center justify-end p-2 bg-secondary/30 border-b border-border">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowSearch(true)}
+            className="h-8 gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <Search className="w-4 h-4" />
+            <span className="text-xs">Suchen</span>
+          </Button>
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -178,63 +332,73 @@ export function DataTable({ data }: DataTableProps) {
             </tr>
           </thead>
           <tbody>
-            {paginatedData.map((row, idx) => (
-              <tr 
-                key={`${row.key}-${idx}`}
-                className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
-              >
-                <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                  {row.rowNumber}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={cn('px-2 py-1 rounded-md text-xs font-medium', getCategoryColor(row.category))}>
-                    {row.category}
-                  </span>
-                </td>
-                <td className="px-4 py-3 font-mono text-sm text-moonstone-light">
-                  {(() => {
-                    const description = getFieldDescriptionByKey(row.key) || getFieldDescription(row.dataFieldName);
-                    if (description) {
-                      return (
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1 cursor-pointer hover:text-primary transition-colors text-left">
-                              {row.dataFieldName}
-                              <Info className="w-3 h-3 opacity-50" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="top" align="start" sideOffset={5} className="w-80 md:w-96 z-50 bg-popover border-border">
-                            <p className="font-medium">{description.dataPointName}</p>
-                            {description.description && (
-                              <p className="text-xs text-muted-foreground mt-1">{description.description}</p>
-                            )}
-                            {description.unit && (
-                              <p className="text-xs mt-1">Einheit: {description.unit}</p>
-                            )}
-                          </PopoverContent>
-                        </Popover>
-                      );
+            {paginatedData.map((row, idx) => {
+              const isMatch = currentPageMatchIndices.includes(idx);
+              const isCurrentMatch = highlightedRowOnPage === idx;
+              
+              return (
+                <tr 
+                  key={`${row.key}-${idx}`}
+                  className={cn(
+                    "border-b border-border/50 transition-colors",
+                    isCurrentMatch && "bg-primary/20 ring-1 ring-primary/50",
+                    isMatch && !isCurrentMatch && "bg-primary/10",
+                    !isMatch && "hover:bg-secondary/30"
+                  )}
+                >
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                    {highlightText(String(row.rowNumber))}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={cn('px-2 py-1 rounded-md text-xs font-medium', getCategoryColor(row.category))}>
+                      {highlightText(row.category)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-sm text-moonstone-light">
+                    {(() => {
+                      const description = getFieldDescriptionByKey(row.key) || getFieldDescription(row.dataFieldName);
+                      if (description) {
+                        return (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="inline-flex items-center gap-1 cursor-pointer hover:text-primary transition-colors text-left">
+                                {highlightText(row.dataFieldName)}
+                                <Info className="w-3 h-3 opacity-50" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent side="top" align="start" sideOffset={5} className="w-80 md:w-96 z-50 bg-popover border-border">
+                              <p className="font-medium">{description.dataPointName}</p>
+                              {description.description && (
+                                <p className="text-xs text-muted-foreground mt-1">{description.description}</p>
+                              )}
+                              {description.unit && (
+                                <p className="text-xs mt-1">Einheit: {description.unit}</p>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        );
+                      }
+                      return highlightText(row.dataFieldName);
+                    })()}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-sm">
+                    <span className={cn(
+                      typeof row.value === 'number' && 'text-primary',
+                      typeof row.value === 'boolean' && (row.value ? 'text-success' : 'text-destructive'),
+                      row.value === null && 'text-muted-foreground italic'
+                    )}>
+                      {highlightText(row.value === null ? 'null' : String(row.value))}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                    {row.timestampUtc && isValid(row.timestampUtc)
+                      ? highlightText(format(row.timestampUtc, 'dd.MM.yyyy HH:mm:ss', { locale: de }))
+                      : '-'
                     }
-                    return row.dataFieldName;
-                  })()}
-                </td>
-                <td className="px-4 py-3 font-mono text-sm">
-                  <span className={cn(
-                    typeof row.value === 'number' && 'text-primary',
-                    typeof row.value === 'boolean' && (row.value ? 'text-success' : 'text-destructive'),
-                    row.value === null && 'text-muted-foreground italic'
-                  )}>
-                    {row.value === null ? 'null' : String(row.value)}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">
-                  {row.timestampUtc && isValid(row.timestampUtc)
-                    ? format(row.timestampUtc, 'dd.MM.yyyy HH:mm:ss', { locale: de })
-                    : '-'
-                  }
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -242,7 +406,7 @@ export function DataTable({ data }: DataTableProps) {
       {/* Pagination */}
       <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-secondary/30">
         <span className="text-sm text-muted-foreground">
-          {data.length.toLocaleString('de-DE')} Einträge
+          {sortedData.length.toLocaleString('de-DE')} Einträge
         </span>
         <div className="flex items-center gap-2">
           <button
