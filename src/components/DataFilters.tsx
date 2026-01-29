@@ -55,16 +55,16 @@ export function DataFilters({ filter, onFilterChange, fieldsWithFrequency, onExp
         </div>
         <div className="flex items-center gap-3">
         {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
-            >
-              <X className="w-3.5 h-3.5" />
-              Zurücksetzen
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={clearFilters}
+            className="h-7 text-xs gap-1.5"
+          >
+            <X className="w-3.5 h-3.5" />
+            Zurücksetzen
+          </Button>
+        )}
           {hasActiveFilters && onExport && filteredCount !== undefined && (
             <Button
               variant="outline"
