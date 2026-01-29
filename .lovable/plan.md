@@ -1,110 +1,103 @@
 
 
-## Plan: Debounced Suche für bessere Performance
+## Plan: Suche über vollständigen Datenfeldnamen
 
 ### Problem
 
-Bei jedem Tastendruck wird sofort `onSearch(value)` aufgerufen (Zeile 30 in `TableSearch.tsx`), was das teure `searchMatches`-useMemo in `DataTable.tsx` triggert. Bei 200.000+ Datenpunkten führt das zu spürbaren Verzögerungen.
+Wie im Screenshot zu sehen: Das Feld heißt vollständig `chargingStatus.profileChargeReason`, aber in der Tabelle und im Filter wird nur der Kurzname `profileChargeReason` angezeigt und durchsucht.
+
+Wenn der Benutzer nach "chargingStatus" sucht, findet er keine Ergebnisse, obwohl das Feld diesen Präfix hat.
+
+### Ursache
+
+Der vollständige Feldname ist im Data Dictionary unter `dataPointName` gespeichert, aber:
+1. **Filter-Suche** (`filterData` in `dataParser.ts`): Durchsucht nur `d.dataFieldName` (Kurzname)
+2. **Tabellen-Suche** (`getRowSearchableText` in `DataTable.tsx`): Durchsucht nur `row.dataFieldName` (Kurzname)
 
 ### Lösung
 
-**Debouncing** implementieren: Die Suche wird erst ausgelöst, nachdem der Benutzer 300ms nicht mehr getippt hat.
+Den vollständigen `dataPointName` aus dem Data Dictionary holen und in den durchsuchbaren Text einbeziehen.
 
-### Implementierung
+### Änderungen
 
-#### TableSearch.tsx - Debounced Callback hinzufügen
+#### 1. dataParser.ts - Filter-Suche erweitern
 
 ```typescript
-import { useState, useEffect, useCallback, useRef } from 'react';
-// ... andere imports
+import { getFieldDescriptionByKey } from '@/lib/dataDictionary';
 
-export function TableSearch({ 
-  onSearch, 
-  matchCount, 
-  currentMatch, 
-  onNavigate, 
-  onClose 
-}: TableSearchProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
+export function filterData(
+  data: ParsedDataPoint[],
+  fieldNames: string[],
+  startDate: Date | null,
+  endDate: Date | null,
+  searchTerm: string
+): ParsedDataPoint[] {
+  const adjustedEndDate = endDate ? endOfDay(endDate) : null;
+  
+  return data.filter(d => {
+    if (fieldNames.length > 0 && !fieldNames.includes(d.dataFieldName)) return false;
+    if (startDate && d.timestampUtc && d.timestampUtc < startDate) return false;
+    if (adjustedEndDate && d.timestampUtc && d.timestampUtc > adjustedEndDate) return false;
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      
+      // Vollständigen Feldnamen aus Data Dictionary holen
+      const dictEntry = getFieldDescriptionByKey(d.key);
+      const fullFieldName = dictEntry?.dataPointName || d.dataFieldName;
+      
+      if (!fullFieldName.toLowerCase().includes(term) && 
+          !d.dataFieldName.toLowerCase().includes(term) && 
+          !d.rawValue.toLowerCase().includes(term)) {
+        return false;
       }
-    };
-  }, []);
-
-  const handleChange = (value: string) => {
-    setSearchTerm(value);
-    
-    // Clear previous timeout
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
     }
+    return true;
+  });
+}
+```
+
+#### 2. DataTable.tsx - Tabellen-Suche erweitern
+
+```typescript
+import { getFieldDescriptionByKey } from '@/lib/dataDictionary';
+
+function getRowSearchableText(row: ParsedDataPoint): string {
+  const timestamp = row.timestampUtc && isValid(row.timestampUtc)
+    ? format(row.timestampUtc, 'dd.MM.yyyy HH:mm:ss', { locale: de })
+    : '';
     
-    // Debounce search - wait 300ms after last keystroke
-    debounceRef.current = setTimeout(() => {
-      onSearch(value);
-    }, 300);
-  };
-
-  const handleClear = () => {
-    setSearchTerm('');
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-    onSearch(''); // Sofort leeren, kein Debounce nötig
-    inputRef.current?.focus();
-  };
-
-  // ... rest bleibt gleich
+  // Vollständigen Feldnamen aus Data Dictionary holen
+  const dictEntry = getFieldDescriptionByKey(row.key);
+  const fullFieldName = dictEntry?.dataPointName || '';
+  
+  return [
+    String(row.rowNumber),
+    row.category,
+    fullFieldName,           // Vollständiger Pfad (chargingStatus.profileChargeReason)
+    row.dataFieldName,       // Kurzname (profileChargeReason)
+    row.value === null ? 'null' : String(row.value),
+    timestamp
+  ].join(' ').toLowerCase();
 }
 ```
 
 ### Verhalten nach der Änderung
 
-| Aktion | Vorher | Nachher |
-|--------|--------|---------|
-| Tippen von "Batterie" | 8 Suchvorgänge (B-a-t-t-e-r-i-e) | 1 Suchvorgang (nach 300ms Pause) |
-| Schnelles Tippen | UI friert bei jedem Buchstaben ein | Flüssige Eingabe, Suche am Ende |
-| Löschen der Suche | Sofort | Sofort (kein Debounce) |
-| Enter drücken | Navigation sofort | Navigation sofort |
+| Suchbegriff | Vorher | Nachher |
+|-------------|--------|---------|
+| `profileChargeReason` | ✅ Findet | ✅ Findet |
+| `chargingStatus` | ❌ Keine Treffer | ✅ Findet alle chargingStatus.* Felder |
+| `chargingStatus.profile` | ❌ Keine Treffer | ✅ Findet |
+| `status.plugLock` | ❌ Keine Treffer | ✅ Findet plugConnectionStatus.plugLockState |
 
-### Visuelles Feedback (optional)
+### Performance
 
-Zusätzlich könnte ein Lade-Indikator während des Wartens angezeigt werden:
+Die Performance soll auch bei großen Datenmengen nicht leiden.
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  🔍 Batter...  ⏳                   [↑] [↓]    [✕]          │
-│     (Suche läuft...)                                        │
-└─────────────────────────────────────────────────────────────┘
-
-Nach 300ms:
-
-┌─────────────────────────────────────────────────────────────┐
-│  🔍 Batterie   ✕        1 von 42    [↑] [↓]    [✕]          │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Änderungen
+### Dateien
 
 | Datei | Änderung |
 |-------|----------|
-| `src/components/TableSearch.tsx` | Debounce-Logik mit `setTimeout` und Cleanup hinzufügen |
-
-### Technische Details
-
-- **Debounce-Delay**: 300ms (guter Kompromiss zwischen Reaktionszeit und Performance)
-- **Cleanup**: `clearTimeout` beim Unmount verhindert Memory Leaks
-- **Sofortiges Löschen**: Bei "X"-Button oder leerem Input kein Debounce nötig
-- **Keine zusätzlichen Dependencies**: Verwendet nur native `setTimeout`/`clearTimeout`
+| `src/lib/dataParser.ts` | Import hinzufügen, `filterData` um vollständigen Feldnamen erweitern |
+| `src/components/DataTable.tsx` | Import hinzufügen, `getRowSearchableText` um vollständigen Feldnamen erweitern |
 
