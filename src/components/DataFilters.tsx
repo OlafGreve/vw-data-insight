@@ -54,14 +54,16 @@ export function DataFilters({ filter, onFilterChange, fieldsWithFrequency, onExp
           <span className="font-display font-medium text-sm">Filter</span>
         </div>
         <div className="flex items-center gap-3">
-          {hasActiveFilters && (
-            <button
+        {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={clearFilters}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
             >
-              <X className="w-3 h-3" />
+              <X className="w-3.5 h-3.5" />
               Zurücksetzen
-            </button>
+            </Button>
           )}
           {hasActiveFilters && onExport && filteredCount !== undefined && (
             <Button
