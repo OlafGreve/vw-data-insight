@@ -1,63 +1,185 @@
 
-## Plan: Intelligente Wert-Sortierung
 
-### Problem-Analyse
-Die aktuelle Sortierung in Zeile 29-30 verwendet immer `String(a.rawValue).localeCompare()`, was zu alphabetischer Sortierung führt:
-- "10" < "3" (weil "1" < "3")
-- Ergebnis: 10, 3, 5, 6 statt 3, 5, 6, 10
+## Plan: Datenexport-Funktion
 
-### Vorgeschlagene Lösung: Typbasierte Sortierung
+### Ziel
+Export der gefilterten Daten im Original-Eingabeformat, sodass die exportierte JSON-Datei direkt wieder importiert werden kann.
 
-Nutze das bereits geparsede `value`-Feld, das den korrekten Datentyp enthält (`number | boolean | string | null`):
+---
 
-```typescript
-case 'value':
-  // 1. Null-Werte ans Ende
-  if (a.value === null && b.value === null) {
-    comparison = 0;
-  } else if (a.value === null) {
-    comparison = 1;  // null nach hinten
-  } else if (b.value === null) {
-    comparison = -1;
-  }
-  // 2. Gleiche Typen: typspezifisch sortieren
-  else if (typeof a.value === 'number' && typeof b.value === 'number') {
-    comparison = a.value - b.value;  // Numerisch
-  } else if (typeof a.value === 'boolean' && typeof b.value === 'boolean') {
-    comparison = (a.value === b.value) ? 0 : (a.value ? -1 : 1);  // true vor false
-  }
-  // 3. Unterschiedliche Typen: nach Typ gruppieren, dann String-Vergleich
-  else {
-    const typeOrder = { number: 1, boolean: 2, string: 3 };
-    const aType = typeof a.value as keyof typeof typeOrder;
-    const bType = typeof b.value as keyof typeof typeOrder;
-    if (aType !== bType) {
-      comparison = typeOrder[aType] - typeOrder[bType];
-    } else {
-      comparison = String(a.value).localeCompare(String(b.value));
-    }
-  }
-  break;
+### Herausforderung: Datenmapping
+
+Die App verarbeitet Daten in zwei Stufen:
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│  IMPORT                                                             │
+│  rawData.Data[i] = {                                                │
+│    key: "abc123",                                                   │
+│    dataFieldName: "vehicle.charging.currentSOCInPct",  ← Vollpfad  │
+│    value: "85",                                                     │
+│    timestampUtc: "2024-01-15T10:30:00Z"                            │
+│  }                                                                  │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓ parseVehicleData()
+┌─────────────────────────────────────────────────────────────────────┐
+│  GEPARST (filteredData)                                             │
+│  parsedData[i] = {                                                  │
+│    key: "abc123",                                                   │
+│    dataFieldName: "currentSOCInPct",  ← Nur letztes Segment        │
+│    value: 85,  ← Typisiert                                         │
+│    rawValue: "85",  ← Original-String                              │
+│    timestampUtc: Date object,                                       │
+│    category: "Batterie & Laden",                                    │
+│    rowNumber: 42                                                    │
+│  }                                                                  │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Sortierverhalten nach Implementierung
+**Lösung**: Nutze den eindeutigen `key` + `rowNumber` um gefilterte Daten auf die Originaleinträge zu mappen.
 
-| Werttyp | Sortierung | Beispiel |
-|---------|------------|----------|
-| Zahlen | Numerisch | 3, 5, 6, 10, 100 |
-| Booleans | true vor false | true, true, false, false |
-| Strings | Alphabetisch | "charging", "idle", "ready" |
-| null | Immer am Ende | ..., null, null |
-| Gemischt | Nach Typ gruppiert | Zahlen → Booleans → Strings → null |
+---
 
-### Änderungen
+### Komponenten-Übersicht
+
+#### 1. Neue Utility-Funktion: `src/lib/dataExporter.ts`
+
+```typescript
+export function exportFilteredData(
+  rawData: VehicleDataFile,
+  filteredData: ParsedDataPoint[]
+): VehicleDataFile {
+  // Erstelle Set der gefilterten Keys für schnellen Lookup
+  const filteredKeys = new Set(
+    filteredData.map(d => `${d.key}-${d.rowNumber}`)
+  );
+  
+  // Filtere Originaldaten basierend auf gefilterten ParsedDataPoints
+  const filteredOriginalData = rawData.Data.filter((entry, index) => 
+    filteredKeys.has(`${entry.key}-${index + 1}`)
+  );
+  
+  return {
+    vin: rawData.vin,
+    userId: rawData.userId,
+    Data: filteredOriginalData
+  };
+}
+
+export function downloadAsJson(data: VehicleDataFile, filename: string): void {
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+```
+
+#### 2. Export-Button in `DataFilters.tsx`
+
+Platzierung neben dem "Zurücksetzen"-Button:
+
+```typescript
+// Neue Props
+interface DataFiltersProps {
+  // ... bestehende Props
+  onExport?: () => void;
+  filteredCount?: number;
+  totalCount?: number;
+}
+
+// Im Header-Bereich der Filter-Komponente
+<div className="flex items-center gap-3">
+  {hasActiveFilters && (
+    <button onClick={clearFilters}>
+      <X /> Zurücksetzen
+    </button>
+  )}
+  {onExport && (
+    <Button 
+      variant="outline" 
+      size="sm"
+      onClick={onExport}
+      className="..."
+    >
+      <Download className="w-4 h-4 mr-2" />
+      Export ({filteredCount?.toLocaleString('de-DE')})
+    </Button>
+  )}
+</div>
+```
+
+#### 3. Integration in `Index.tsx`
+
+```typescript
+import { exportFilteredData, downloadAsJson } from '@/lib/dataExporter';
+import { format } from 'date-fns';
+
+const handleExport = () => {
+  if (!rawData) return;
+  
+  const exportData = exportFilteredData(rawData, filteredData);
+  const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm');
+  const filename = `vw-daten-export_${rawData.vin}_${timestamp}.json`;
+  
+  downloadAsJson(exportData, filename);
+};
+
+// In DataFilters:
+<DataFilters 
+  filter={filter} 
+  onFilterChange={setFilter} 
+  fieldsWithFrequency={fieldsWithFrequency}
+  onExport={handleExport}
+  filteredCount={filteredData.length}
+  totalCount={parsedData.length}
+/>
+```
+
+---
+
+### UI-Mockup
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│  🔍 Filter                              [✕ Zurücksetzen] [↓ Export] │
+├─────────────────────────────────────────────────────────────────────┤
+│  [Suchen...]  [Datenfelder ▾]  [Von 📅]  [Bis 📅]                  │
+└─────────────────────────────────────────────────────────────────────┘
+                                               ↑
+                                    Zeigt Anzahl: "Export (12.345)"
+```
+
+---
+
+### Dateiname-Konvention
+
+Format: `vw-daten-export_{VIN}_{YYYY-MM-DD_HH-mm}.json`
+
+Beispiel: `vw-daten-export_WVWZZZ3CZYE123456_2026-01-29_14-30.json`
+
+---
+
+### Zusammenfassung der Änderungen
 
 | Datei | Änderung |
 |-------|----------|
-| `src/components/DataTable.tsx` | `sortData`-Funktion: `value`-Case durch typbasierte Logik ersetzen |
+| `src/lib/dataExporter.ts` | **Neu**: Export-Logik und Download-Funktion |
+| `src/components/DataFilters.tsx` | Export-Button mit Datenpunkt-Anzahl |
+| `src/pages/Index.tsx` | `handleExport`-Funktion und Props-Weitergabe |
 
-### Vorteile
-- Nutzt bereits vorhandene Typinformation aus `ParsedDataPoint.value`
-- Keine zusätzlichen Abhängigkeiten
-- Konsistentes Verhalten bei gemischten Datentypen
-- Null-Werte werden vorhersehbar behandelt
+---
+
+### Technische Details
+
+- **Keine neuen Abhängigkeiten**: Nutzt native Browser-APIs (Blob, URL.createObjectURL)
+- **Speichereffizient**: Kein Kopieren großer Datenmengen, nur Filterung
+- **Rundtrip-fähig**: Exportierte Datei hat exakt das Format der Eingabe
+- **JSON-Formatierung**: `JSON.stringify(data, null, 2)` für Lesbarkeit
+
