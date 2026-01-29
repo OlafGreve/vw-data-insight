@@ -1,5 +1,6 @@
 import type { VehicleDataFile, VehicleDataEntry, ParsedDataPoint } from '@/types/vehicleData';
 import { endOfDay } from 'date-fns';
+import { getFieldDescriptionByKey } from '@/lib/dataDictionary';
 
 export function parseVehicleData(data: VehicleDataFile): ParsedDataPoint[] {
   return data.Data.map((entry, index) => ({
@@ -83,7 +84,13 @@ export function filterData(
     if (adjustedEndDate && d.timestampUtc && d.timestampUtc > adjustedEndDate) return false;
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      if (!d.dataFieldName.toLowerCase().includes(term) && 
+      
+      // Vollständigen Feldnamen aus Data Dictionary holen
+      const dictEntry = getFieldDescriptionByKey(d.key);
+      const fullFieldName = dictEntry?.dataPointName || d.dataFieldName;
+      
+      if (!fullFieldName.toLowerCase().includes(term) && 
+          !d.dataFieldName.toLowerCase().includes(term) && 
           !d.rawValue.toLowerCase().includes(term)) {
         return false;
       }

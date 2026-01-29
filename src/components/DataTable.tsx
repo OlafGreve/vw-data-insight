@@ -78,10 +78,16 @@ function getRowSearchableText(row: ParsedDataPoint): string {
   const timestamp = row.timestampUtc && isValid(row.timestampUtc)
     ? format(row.timestampUtc, 'dd.MM.yyyy HH:mm:ss', { locale: de })
     : '';
+    
+  // Vollständigen Feldnamen aus Data Dictionary holen
+  const dictEntry = getFieldDescriptionByKey(row.key);
+  const fullFieldName = dictEntry?.dataPointName || '';
+  
   return [
     String(row.rowNumber),
     row.category,
-    row.dataFieldName,
+    fullFieldName,           // Vollständiger Pfad (chargingStatus.profileChargeReason)
+    row.dataFieldName,       // Kurzname (profileChargeReason)
     row.value === null ? 'null' : String(row.value),
     timestamp
   ].join(' ').toLowerCase();
