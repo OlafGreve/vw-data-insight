@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, ChevronUp, ChevronDown, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,14 +20,33 @@ export function TableSearch({
 }: TableSearchProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
   const handleChange = (value: string) => {
     setSearchTerm(value);
-    onSearch(value);
+    
+    // Clear previous timeout
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    // Debounce search - wait 300ms after last keystroke
+    debounceRef.current = setTimeout(() => {
+      onSearch(value);
+    }, 300);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -45,7 +64,10 @@ export function TableSearch({
 
   const handleClear = () => {
     setSearchTerm('');
-    onSearch('');
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    onSearch(''); // Sofort leeren, kein Debounce nötig
     inputRef.current?.focus();
   };
 
