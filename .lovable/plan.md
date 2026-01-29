@@ -1,58 +1,110 @@
 
 
-## Plan: Kalender auf gewähltes Datum fokussieren
+## Plan: Debounced Suche für bessere Performance
 
 ### Problem
 
-Wie im Screenshot zu sehen: Das Enddatum ist auf **08.10.2025** gesetzt, aber der Kalender öffnet sich auf **Januar 2026** (dem aktuellen Monat). Das ist verwirrend für Benutzer.
-
-### Ursache
-
-Die `Calendar`-Komponente (`react-day-picker`) erhält keine `defaultMonth`-Prop. Standardmäßig zeigt sie immer den aktuellen Monat an.
+Bei jedem Tastendruck wird sofort `onSearch(value)` aufgerufen (Zeile 30 in `TableSearch.tsx`), was das teure `searchMatches`-useMemo in `DataTable.tsx` triggert. Bei 200.000+ Datenpunkten führt das zu spürbaren Verzögerungen.
 
 ### Lösung
 
-Die `defaultMonth`-Prop an beide Kalender übergeben:
-- Wenn ein Datum gewählt ist → dieses Datum als `defaultMonth` verwenden
-- Wenn kein Datum gewählt ist → `undefined` (zeigt aktuellen Monat)
+**Debouncing** implementieren: Die Suche wird erst ausgelöst, nachdem der Benutzer 300ms nicht mehr getippt hat.
 
-### Code-Änderung
+### Implementierung
+
+#### TableSearch.tsx - Debounced Callback hinzufügen
 
 ```typescript
-{/* Start Date */}
-<Calendar
-  mode="single"
-  selected={filter.startDate || undefined}
-  onSelect={(date) => onFilterChange({ ...filter, startDate: date || null })}
-  defaultMonth={filter.startDate || undefined}  // NEU
-  initialFocus
-  className="pointer-events-auto"
-  locale={de}
-/>
+import { useState, useEffect, useCallback, useRef } from 'react';
+// ... andere imports
 
-{/* End Date */}
-<Calendar
-  mode="single"
-  selected={filter.endDate || undefined}
-  onSelect={(date) => onFilterChange({ ...filter, endDate: date || null })}
-  defaultMonth={filter.endDate || undefined}  // NEU
-  initialFocus
-  className="pointer-events-auto"
-  locale={de}
-/>
+export function TableSearch({ 
+  onSearch, 
+  matchCount, 
+  currentMatch, 
+  onNavigate, 
+  onClose 
+}: TableSearchProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
+  const handleChange = (value: string) => {
+    setSearchTerm(value);
+    
+    // Clear previous timeout
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    // Debounce search - wait 300ms after last keystroke
+    debounceRef.current = setTimeout(() => {
+      onSearch(value);
+    }, 300);
+  };
+
+  const handleClear = () => {
+    setSearchTerm('');
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    onSearch(''); // Sofort leeren, kein Debounce nötig
+    inputRef.current?.focus();
+  };
+
+  // ... rest bleibt gleich
+}
 ```
 
 ### Verhalten nach der Änderung
 
-| Zustand | Kalender zeigt |
-|---------|----------------|
-| Startdatum: 13.02.2025 | Februar 2025 |
-| Enddatum: 08.10.2025 | Oktober 2025 |
-| Kein Datum gewählt | Aktueller Monat (Januar 2026) |
+| Aktion | Vorher | Nachher |
+|--------|--------|---------|
+| Tippen von "Batterie" | 8 Suchvorgänge (B-a-t-t-e-r-i-e) | 1 Suchvorgang (nach 300ms Pause) |
+| Schnelles Tippen | UI friert bei jedem Buchstaben ein | Flüssige Eingabe, Suche am Ende |
+| Löschen der Suche | Sofort | Sofort (kein Debounce) |
+| Enter drücken | Navigation sofort | Navigation sofort |
+
+### Visuelles Feedback (optional)
+
+Zusätzlich könnte ein Lade-Indikator während des Wartens angezeigt werden:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  🔍 Batter...  ⏳                   [↑] [↓]    [✕]          │
+│     (Suche läuft...)                                        │
+└─────────────────────────────────────────────────────────────┘
+
+Nach 300ms:
+
+┌─────────────────────────────────────────────────────────────┐
+│  🔍 Batterie   ✕        1 von 42    [↑] [↓]    [✕]          │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### Änderungen
 
 | Datei | Änderung |
 |-------|----------|
-| `src/components/DataFilters.tsx` | `defaultMonth` Prop zu beiden Calendar-Komponenten hinzufügen (Zeilen 169-176 und 195-202) |
+| `src/components/TableSearch.tsx` | Debounce-Logik mit `setTimeout` und Cleanup hinzufügen |
+
+### Technische Details
+
+- **Debounce-Delay**: 300ms (guter Kompromiss zwischen Reaktionszeit und Performance)
+- **Cleanup**: `clearTimeout` beim Unmount verhindert Memory Leaks
+- **Sofortiges Löschen**: Bei "X"-Button oder leerem Input kein Debounce nötig
+- **Keine zusätzlichen Dependencies**: Verwendet nur native `setTimeout`/`clearTimeout`
 
