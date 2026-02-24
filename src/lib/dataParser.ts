@@ -1,5 +1,5 @@
 import type { VehicleDataFile, VehicleDataEntry, ParsedDataPoint } from '@/types/vehicleData';
-import { endOfDay } from 'date-fns';
+import { endOfDay, format } from 'date-fns';
 import { getFieldDescriptionByKey } from '@/lib/dataDictionary';
 
 export function parseVehicleData(data: VehicleDataFile): ParsedDataPoint[] {
