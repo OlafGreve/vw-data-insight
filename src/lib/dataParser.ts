@@ -177,7 +177,7 @@ export function getRangeBySOCOverTime(data: ParsedDataPoint[]): RangeBySOCPoint[
       dailyMap.set(dayKey, { date: p.timestamp, sums: {}, counts: {} });
     }
     const entry = dailyMap.get(dayKey)!;
-    const socKey = `soc${p.soc}`;
+    const socKey = `soc${p.socBand}`;
     entry.sums[socKey] = (entry.sums[socKey] || 0) + p.range;
     entry.counts[socKey] = (entry.counts[socKey] || 0) + 1;
   }
