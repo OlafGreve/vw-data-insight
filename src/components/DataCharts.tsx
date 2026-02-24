@@ -564,7 +564,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
         ))}
 
         {/* Field Frequency - Always Last */}
-        {visibleCharts >= 6 && (
+        {visibleCharts >= 7 && (
           <ChartCard title="Häufigste Datenpunkte" subtitle="Top 10 Datenfelder nach Häufigkeit">
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={fieldFrequency} layout="vertical">
