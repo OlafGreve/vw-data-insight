@@ -473,7 +473,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
                   <YAxis
                     stroke="hsl(220, 10%, 55%)"
                     fontSize={11}
-                    domain={[0, 'auto']}
+                    domain={[0, 450]}
                     tickFormatter={(value) => `${value} km`}
                   />
                   <Tooltip
