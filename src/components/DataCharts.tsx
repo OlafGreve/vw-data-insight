@@ -206,7 +206,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
 
   const formatTimestamp = (timestamp: Date | number) => {
     const date = typeof timestamp === 'number' ? new Date(timestamp) : timestamp;
-    return format(date, 'dd.MM. HH:mm', { locale: de });
+    return format(date, 'dd.MM.', { locale: de });
   };
 
   // Common XAxis props for time-series charts
@@ -321,7 +321,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
                       borderRadius: '8px',
                       color: 'hsl(220, 10%, 92%)'
                     }}
-                    labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
+                    labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy', { locale: de })}
                     formatter={(value: number) => [`${value}%`, 'Ladezustand']}
                   />
                   <Area 
@@ -363,7 +363,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
                       borderRadius: '8px',
                       color: 'hsl(220, 10%, 92%)'
                     }}
-                    labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
+                    labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy', { locale: de })}
                     formatter={(value: number) => [`${value} km`, 'Reichweite']}
                   />
                   <Area 
@@ -399,7 +399,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
                       borderRadius: '8px',
                       color: 'hsl(220, 10%, 92%)'
                     }}
-                    labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
+                    labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy', { locale: de })}
                     formatter={(value: number) => [`${value} kW`, 'Ladeleistung']}
                   />
                   <Line 
@@ -542,7 +542,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
                       borderRadius: '8px',
                       color: 'hsl(220, 10%, 92%)'
                     }}
-                    labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
+                    labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy', { locale: de })}
                     formatter={(value: number) => [value.toLocaleString('de-DE'), field]}
                   />
                   <Area 
