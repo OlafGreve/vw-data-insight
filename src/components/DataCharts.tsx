@@ -1,7 +1,8 @@
 import React, { useMemo, useCallback, useRef, useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
 import type { ParsedDataPoint } from '@/types/vehicleData';
-import { getTimeSeriesData, getFieldFrequency } from '@/lib/dataParser';
+import { getTimeSeriesData, getFieldFrequency, getRangeBySOCOverTime } from '@/lib/dataParser';
+import type { RangeBySOCPoint } from '@/lib/dataParser';
 import { downsampleLTTB } from '@/lib/downsample';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
