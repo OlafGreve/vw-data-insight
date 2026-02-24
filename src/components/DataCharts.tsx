@@ -48,7 +48,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
     setVisibleCharts(0);
     const timer = setInterval(() => {
       setVisibleCharts(prev => {
-        if (prev >= 6) {
+        if (prev >= 7) {
           clearInterval(timer);
           return prev;
         }
