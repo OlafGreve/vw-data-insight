@@ -41,21 +41,26 @@ const MAX_CHART_POINTS = 500;
 
 export function DataCharts({ data, selectedFields = [], useLinearTimeScale = false, onDateRangeSelect }: DataChartsProps) {
   const activeTimestampRef = useRef<Date | null>(null);
+  const isInitialLoad = useRef(true);
   const [visibleCharts, setVisibleCharts] = useState(0);
 
-  // Progressive chart loading
+  // Progressive chart loading only on first load
   useEffect(() => {
-    setVisibleCharts(0);
-    const timer = setInterval(() => {
-      setVisibleCharts(prev => {
-        if (prev >= 7) {
-          clearInterval(timer);
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 60);
-    return () => clearInterval(timer);
+    if (isInitialLoad.current) {
+      setVisibleCharts(0);
+      const timer = setInterval(() => {
+        setVisibleCharts(prev => {
+          if (prev >= 7) {
+            clearInterval(timer);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 60);
+      isInitialLoad.current = false;
+      return () => clearInterval(timer);
+    }
+    setVisibleCharts(7);
   }, [data]);
 
   // Track the currently hovered timestamp for context menu - uses ref to avoid re-renders
