@@ -135,6 +135,24 @@ const SOC_KEYS = SOC_LEVELS.map(l => `soc${l}` as keyof RangeBySOCPoint);
  * filters for exact SOC levels (100, 90, 80, ...),
  * and aggregates daily averages.
  */
+function findClosestPoint(
+  sorted: { timestamp: Date; value: number }[],
+  targetTime: number
+): { timestamp: Date; value: number } | null {
+  if (sorted.length === 0) return null;
+  let lo = 0, hi = sorted.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (sorted[mid].timestamp.getTime() < targetTime) lo = mid + 1;
+    else hi = mid;
+  }
+  const candidates = [sorted[lo], sorted[lo - 1]].filter(Boolean);
+  return candidates.reduce((best, c) =>
+    !best || Math.abs(c!.timestamp.getTime() - targetTime) < Math.abs(best.timestamp.getTime() - targetTime)
+      ? c! : best
+  , null as typeof sorted[0] | null);
+}
+
 export function getRangeBySOCOverTime(data: ParsedDataPoint[]): RangeBySOCPoint[] {
   // Extract SOC and range time series
   const socPoints = getTimeSeriesData(data, 'currentSOCInPct');
@@ -146,25 +164,16 @@ export function getRangeBySOCOverTime(data: ParsedDataPoint[]): RangeBySOCPoint[
   const MAX_GAP_MS = 60 * 1000; // 1 minute
   const pairs: { timestamp: Date; soc: number; range: number }[] = [];
 
-  let rangeIdx = 0;
   for (const sp of socPoints) {
-    // Only use exact multiples of 10
-    if (sp.value % 10 !== 0 || sp.value < 10 || sp.value > 100) continue;
+    // Exakte 10er-Stufen mit Fliesskomma-Toleranz
+    const rounded = Math.round(sp.value);
+    if (rounded % 10 !== 0 || rounded < 10 || rounded > 100) continue;
 
     const spTime = sp.timestamp.getTime();
+    const closest = findClosestPoint(rangePoints, spTime);
 
-    // Advance rangeIdx to closest point
-    while (rangeIdx < rangePoints.length - 1 &&
-      Math.abs(rangePoints[rangeIdx + 1].timestamp.getTime() - spTime) <
-      Math.abs(rangePoints[rangeIdx].timestamp.getTime() - spTime)) {
-      rangeIdx++;
-    }
-
-    if (rangeIdx < rangePoints.length) {
-      const gap = Math.abs(rangePoints[rangeIdx].timestamp.getTime() - spTime);
-      if (gap <= MAX_GAP_MS) {
-        pairs.push({ timestamp: sp.timestamp, soc: sp.value, range: rangePoints[rangeIdx].value });
-      }
+    if (closest && Math.abs(closest.timestamp.getTime() - spTime) <= MAX_GAP_MS) {
+      pairs.push({ timestamp: sp.timestamp, soc: rounded, range: closest.value });
     }
   }
 
