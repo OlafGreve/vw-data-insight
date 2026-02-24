@@ -164,7 +164,14 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
     });
   }, [additionalNumericFields, data, useLinearTimeScale]);
 
-  const rangeBySOCData = useMemo(() => getRangeBySOCOverTime(data), [data]);
+  const rangeBySOCData = useMemo(() => {
+    const raw = getRangeBySOCOverTime(data);
+    if (!useLinearTimeScale) {
+      // Use Date objects for categorical mode (same as other charts)
+      return raw.map(d => ({ ...d, timestamp: d.date }));
+    }
+    return raw;
+  }, [data, useLinearTimeScale]);
 
   const SOC_LINE_CONFIG = [
     { key: 'soc100', label: '100%', color: 'hsl(160, 70%, 45%)' },
@@ -466,15 +473,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={rangeBySOCData} onMouseMove={handleChartMouseMove}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
-                  <XAxis
-                    dataKey="timestamp"
-                    type="number"
-                    scale="time"
-                    domain={['dataMin', 'dataMax']}
-                    tickFormatter={(value: number) => format(new Date(value), 'dd.MM.', { locale: de })}
-                    stroke="hsl(220, 10%, 55%)"
-                    fontSize={11}
-                  />
+                  <XAxis {...getTimeAxisProps()} />
                   <YAxis
                     stroke="hsl(220, 10%, 55%)"
                     fontSize={11}
