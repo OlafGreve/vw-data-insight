@@ -1,11 +1,13 @@
 import React, { useMemo, useCallback, useRef, useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
 import type { ParsedDataPoint } from '@/types/vehicleData';
-import { getTimeSeriesData, getFieldFrequency } from '@/lib/dataParser';
+import { getTimeSeriesData, getFieldFrequency, getRangeBySOCOverTime } from '@/lib/dataParser';
+import type { RangeBySOCPoint } from '@/lib/dataParser';
 import { downsampleLTTB } from '@/lib/downsample';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Battery, Gauge, Zap, Route, CalendarRange } from 'lucide-react';
+import { Battery, Gauge, Zap, Route, CalendarRange, TrendingDown } from 'lucide-react';
+import { Legend } from 'recharts';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -46,7 +48,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
     setVisibleCharts(0);
     const timer = setInterval(() => {
       setVisibleCharts(prev => {
-        if (prev >= 6) {
+        if (prev >= 7) {
           clearInterval(timer);
           return prev;
         }
@@ -161,6 +163,28 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
       };
     });
   }, [additionalNumericFields, data, useLinearTimeScale]);
+
+  const rangeBySOCData = useMemo(() => getRangeBySOCOverTime(data), [data]);
+
+  const SOC_LINE_CONFIG = [
+    { key: 'soc100', label: '100%', color: 'hsl(160, 70%, 45%)' },
+    { key: 'soc90', label: '90%', color: 'hsl(140, 60%, 50%)' },
+    { key: 'soc80', label: '80%', color: 'hsl(45, 80%, 55%)' },
+    { key: 'soc70', label: '70%', color: 'hsl(30, 80%, 55%)' },
+    { key: 'soc60', label: '60%', color: 'hsl(15, 75%, 55%)' },
+    { key: 'soc50', label: '50%', color: 'hsl(0, 70%, 55%)' },
+    { key: 'soc40', label: '40%', color: 'hsl(0, 50%, 45%)' },
+    { key: 'soc30', label: '30%', color: 'hsl(280, 50%, 50%)' },
+    { key: 'soc20', label: '20%', color: 'hsl(260, 50%, 50%)' },
+    { key: 'soc10', label: '10%', color: 'hsl(240, 50%, 50%)' },
+  ];
+
+  // Filter to only lines that have data
+  const activeSOCLines = useMemo(() => {
+    return SOC_LINE_CONFIG.filter(cfg =>
+      rangeBySOCData.some(d => (d as any)[cfg.key] !== undefined)
+    );
+  }, [rangeBySOCData]);
 
   const fieldFrequency = useMemo(() => {
     const freq = getFieldFrequency(data);
@@ -435,8 +459,66 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
           </ChartCard>
         )}
 
+        {/* Range by SOC Chart */}
+        {visibleCharts >= 5 && rangeBySOCData.length > 0 && activeSOCLines.length > 0 && (
+          <ChartCard title="Reichweite nach Ladestand" subtitle="Geschätzte Reichweite (km) bei verschiedenen Ladeständen">
+            <ChartWithContextMenu>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={rangeBySOCData} onMouseMove={handleChartMouseMove}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
+                  <XAxis
+                    dataKey="timestamp"
+                    type="number"
+                    scale="time"
+                    domain={['dataMin', 'dataMax']}
+                    tickFormatter={(value: number) => format(new Date(value), 'dd.MM.', { locale: de })}
+                    stroke="hsl(220, 10%, 55%)"
+                    fontSize={11}
+                  />
+                  <YAxis
+                    stroke="hsl(220, 10%, 55%)"
+                    fontSize={11}
+                    tickFormatter={(value) => `${value} km`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(220, 15%, 16%)',
+                      border: '1px solid hsl(220, 12%, 25%)',
+                      borderRadius: '8px',
+                      color: 'hsl(220, 10%, 92%)'
+                    }}
+                    labelFormatter={(label) => format(new Date(label), 'dd.MM.yyyy', { locale: de })}
+                    formatter={(value: number, name: string) => {
+                      const cfg = SOC_LINE_CONFIG.find(c => c.key === name);
+                      return [`${value} km`, cfg?.label || name];
+                    }}
+                  />
+                  <Legend
+                    formatter={(value: string) => {
+                      const cfg = SOC_LINE_CONFIG.find(c => c.key === value);
+                      return cfg?.label || value;
+                    }}
+                  />
+                  {activeSOCLines.map(({ key, color }) => (
+                    <Line
+                      key={key}
+                      type="monotone"
+                      dataKey={key}
+                      stroke={color}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      connectNulls
+                      isAnimationActive={false}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartWithContextMenu>
+          </ChartCard>
+        )}
+
         {/* Dynamic Charts for Additional Selected Fields */}
-        {visibleCharts >= 5 && additionalChartsData.map(({ field, data: chartData, color }, index) => (
+        {visibleCharts >= 6 && additionalChartsData.map(({ field, data: chartData, color }, index) => (
           <ChartCard 
             key={field} 
             title={field} 
@@ -482,7 +564,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
         ))}
 
         {/* Field Frequency - Always Last */}
-        {visibleCharts >= 6 && (
+        {visibleCharts >= 7 && (
           <ChartCard title="Häufigste Datenpunkte" subtitle="Top 10 Datenfelder nach Häufigkeit">
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={fieldFrequency} layout="vertical">
