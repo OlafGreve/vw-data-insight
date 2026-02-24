@@ -131,25 +131,23 @@ const SOC_LEVELS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10] as const;
 const SOC_KEYS = SOC_LEVELS.map(l => `soc${l}` as keyof RangeBySOCPoint);
 
 /**
- * Pairs SOC and range data points within a 1-minute window,
- * filters for exact SOC levels (100, 90, 80, ...),
- * and aggregates daily averages.
+ * Pairs SOC and range data points within a 5-minute window,
+ * maps SOC values to nearest 10% band, and aggregates daily averages.
  */
 export function getRangeBySOCOverTime(data: ParsedDataPoint[]): RangeBySOCPoint[] {
-  // Extract SOC and range time series
   const socPoints = getTimeSeriesData(data, 'currentSOCInPct');
   const rangePoints = getTimeSeriesData(data, 'cruisingRangeElectricInKm');
 
   if (socPoints.length === 0 || rangePoints.length === 0) return [];
 
-  // For each SOC point at an exact level, find the closest range point within 1 min
-  const MAX_GAP_MS = 60 * 1000; // 1 minute
-  const pairs: { timestamp: Date; soc: number; range: number }[] = [];
+  const MAX_GAP_MS = 5 * 60 * 1000; // 5 minutes
+  const pairs: { timestamp: Date; socBand: number; range: number }[] = [];
 
   let rangeIdx = 0;
   for (const sp of socPoints) {
-    // Only use exact multiples of 10
-    if (sp.value % 10 !== 0 || sp.value < 10 || sp.value > 100) continue;
+    // Map to nearest 10% band (e.g. 77 -> 80, 73 -> 70)
+    const band = Math.round(sp.value / 10) * 10;
+    if (band < 10 || band > 100) continue;
 
     const spTime = sp.timestamp.getTime();
 
@@ -163,7 +161,7 @@ export function getRangeBySOCOverTime(data: ParsedDataPoint[]): RangeBySOCPoint[
     if (rangeIdx < rangePoints.length) {
       const gap = Math.abs(rangePoints[rangeIdx].timestamp.getTime() - spTime);
       if (gap <= MAX_GAP_MS) {
-        pairs.push({ timestamp: sp.timestamp, soc: sp.value, range: rangePoints[rangeIdx].value });
+        pairs.push({ timestamp: sp.timestamp, socBand: band, range: rangePoints[rangeIdx].value });
       }
     }
   }
