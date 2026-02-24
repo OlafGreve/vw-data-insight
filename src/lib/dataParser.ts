@@ -135,6 +135,24 @@ const SOC_KEYS = SOC_LEVELS.map(l => `soc${l}` as keyof RangeBySOCPoint);
  * filters for exact SOC levels (100, 90, 80, ...),
  * and aggregates daily averages.
  */
+function findClosestPoint(
+  sorted: { timestamp: Date; value: number }[],
+  targetTime: number
+): { timestamp: Date; value: number } | null {
+  if (sorted.length === 0) return null;
+  let lo = 0, hi = sorted.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (sorted[mid].timestamp.getTime() < targetTime) lo = mid + 1;
+    else hi = mid;
+  }
+  const candidates = [sorted[lo], sorted[lo - 1]].filter(Boolean);
+  return candidates.reduce((best, c) =>
+    !best || Math.abs(c!.timestamp.getTime() - targetTime) < Math.abs(best.timestamp.getTime() - targetTime)
+      ? c! : best
+  , null as typeof sorted[0] | null);
+}
+
 export function getRangeBySOCOverTime(data: ParsedDataPoint[]): RangeBySOCPoint[] {
   // Extract SOC and range time series
   const socPoints = getTimeSeriesData(data, 'currentSOCInPct');
