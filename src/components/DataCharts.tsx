@@ -466,15 +466,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={rangeBySOCData} onMouseMove={handleChartMouseMove}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 25%)" />
-                  <XAxis
-                    dataKey="timestamp"
-                    type="number"
-                    scale="time"
-                    domain={['dataMin', 'dataMax']}
-                    tickFormatter={(value: number) => format(new Date(value), 'dd.MM.', { locale: de })}
-                    stroke="hsl(220, 10%, 55%)"
-                    fontSize={11}
-                  />
+                  <XAxis {...getTimeAxisProps()} />
                   <YAxis
                     stroke="hsl(220, 10%, 55%)"
                     fontSize={11}
