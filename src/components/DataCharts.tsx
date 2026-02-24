@@ -6,7 +6,8 @@ import type { RangeBySOCPoint } from '@/lib/dataParser';
 import { downsampleLTTB } from '@/lib/downsample';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Battery, Gauge, Zap, Route, CalendarRange } from 'lucide-react';
+import { Battery, Gauge, Zap, Route, CalendarRange, TrendingDown } from 'lucide-react';
+import { Legend } from 'recharts';
 import {
   ContextMenu,
   ContextMenuContent,
