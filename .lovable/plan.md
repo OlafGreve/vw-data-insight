@@ -1,103 +1,101 @@
+## Reichweite pro Ladestand uber die Zeit 
 
+### Idee
 
-## Plan: Suche über vollständigen Datenfeldnamen
+Ein neues Diagramm, das zeigt, wie viel Reichweite das Fahrzeug bei bestimmten Ladestanden (100%, 90%, 80%, ...) uber die Zeit liefert. Sinkt z.B. die Reichweite bei 100% von 390 km auf 370 km, deutet das auf veränderte Umgebungsparameter wie z.B. Wetter  hin.
 
-### Problem
+### Algorithmus
 
-Wie im Screenshot zu sehen: Das Feld heißt vollständig `chargingStatus.profileChargeReason`, aber in der Tabelle und im Filter wird nur der Kurzname `profileChargeReason` angezeigt und durchsucht.
+Die Daten enthalten `currentSOCInPct` und `cruisingRangeElectricInKm` als separate Datenpunkte mit Zeitstempeln. Um die Reichweite bei einem bestimmten Ladestand zu ermitteln:
 
-Wenn der Benutzer nach "chargingStatus" sucht, findet er keine Ergebnisse, obwohl das Feld diesen Präfix hat.
+1. **SOC- und Reichweite-Datenpunkte zeitlich zuordnen**: Fuer jeden SOC-Datenpunkt den naechsten Reichweite-Datenpunkt suchen (innerhalb eines Zeitfensters von z.B. 1 Minuten)
+2. **Paare bilden**: Ergibt Datenpunkte mit `{ timestamp, soc, range }`
+3. **Interpolieren**: Fuer jedes Zeitfenster (z.B. taeglich) eine lineare Regression/Interpolation durchfuehren, um die Reichweite bei exakt 100%, 90%, 80% usw. zu schaetzen
+4. **Linien zeichnen**: Je eine Linie pro SOC-Stufe
 
-### Ursache
+### Vereinfachter Ansatz
 
-Der vollständige Feldname ist im Data Dictionary unter `dataPointName` gespeichert, aber:
-1. **Filter-Suche** (`filterData` in `dataParser.ts`): Durchsucht nur `d.dataFieldName` (Kurzname)
-2. **Tabellen-Suche** (`getRowSearchableText` in `DataTable.tsx`): Durchsucht nur `row.dataFieldName` (Kurzname)
+Da eine vollstaendige Interpolation komplex ist, verwende ich einen pragmatischen Ansatz:
 
-### Lösung
+- SOC-Reichweite-Paare bilden (zeitlich nahe Datenpunkte)
+- Nur SOC-Werte mit exakt 100%, 90%, ..., 10% verwenden
+- Als Liniendiagramm darstellen
 
-Den vollständigen `dataPointName` aus dem Data Dictionary holen und in den durchsuchbaren Text einbeziehen.
+### Umsetzung
 
-### Änderungen
-
-#### 1. dataParser.ts - Filter-Suche erweitern
-
-```typescript
-import { getFieldDescriptionByKey } from '@/lib/dataDictionary';
-
-export function filterData(
-  data: ParsedDataPoint[],
-  fieldNames: string[],
-  startDate: Date | null,
-  endDate: Date | null,
-  searchTerm: string
-): ParsedDataPoint[] {
-  const adjustedEndDate = endDate ? endOfDay(endDate) : null;
-  
-  return data.filter(d => {
-    if (fieldNames.length > 0 && !fieldNames.includes(d.dataFieldName)) return false;
-    if (startDate && d.timestampUtc && d.timestampUtc < startDate) return false;
-    if (adjustedEndDate && d.timestampUtc && d.timestampUtc > adjustedEndDate) return false;
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      
-      // Vollständigen Feldnamen aus Data Dictionary holen
-      const dictEntry = getFieldDescriptionByKey(d.key);
-      const fullFieldName = dictEntry?.dataPointName || d.dataFieldName;
-      
-      if (!fullFieldName.toLowerCase().includes(term) && 
-          !d.dataFieldName.toLowerCase().includes(term) && 
-          !d.rawValue.toLowerCase().includes(term)) {
-        return false;
-      }
-    }
-    return true;
-  });
-}
-```
-
-#### 2. DataTable.tsx - Tabellen-Suche erweitern
+#### 1. Neue Hilfsfunktion in `dataParser.ts`
 
 ```typescript
-import { getFieldDescriptionByKey } from '@/lib/dataDictionary';
-
-function getRowSearchableText(row: ParsedDataPoint): string {
-  const timestamp = row.timestampUtc && isValid(row.timestampUtc)
-    ? format(row.timestampUtc, 'dd.MM.yyyy HH:mm:ss', { locale: de })
-    : '';
-    
-  // Vollständigen Feldnamen aus Data Dictionary holen
-  const dictEntry = getFieldDescriptionByKey(row.key);
-  const fullFieldName = dictEntry?.dataPointName || '';
-  
-  return [
-    String(row.rowNumber),
-    row.category,
-    fullFieldName,           // Vollständiger Pfad (chargingStatus.profileChargeReason)
-    row.dataFieldName,       // Kurzname (profileChargeReason)
-    row.value === null ? 'null' : String(row.value),
-    timestamp
-  ].join(' ').toLowerCase();
-}
+function getRangeBySOCOverTime(data: ParsedDataPoint[]): {
+  timestamp: Date;
+  soc100?: number;
+  soc90?: number;
+  soc80?: number;
+  soc70?: number;
+  soc60?: number;
+  soc50?: number;
+}[]
 ```
 
-### Verhalten nach der Änderung
+- SOC- und Range-Datenpunkte nach Zeitstempel sortieren
+- Fuer jeden SOC-Wert den zeitlich naechsten Range-Wert suchen (max. 1 Min Abstand)
+- Pro Tag gruppieren und Durchschnittswerte bilden
+- Ergebnis: Ein Datenpunkt pro Tag mit Reichweite fuer jede SOC-Stufe
 
-| Suchbegriff | Vorher | Nachher |
-|-------------|--------|---------|
-| `profileChargeReason` | ✅ Findet | ✅ Findet |
-| `chargingStatus` | ❌ Keine Treffer | ✅ Findet alle chargingStatus.* Felder |
-| `chargingStatus.profile` | ❌ Keine Treffer | ✅ Findet |
-| `status.plugLock` | ❌ Keine Treffer | ✅ Findet plugConnectionStatus.plugLockState |
+#### 2. Neues Diagramm in `DataCharts.tsx`
 
-### Performance
+- Neues `useMemo` fuer die aufbereiteten Daten
+- Ein `LineChart` mit mehreren `Line`-Elementen (eine pro SOC-Stufe)
+- Farbcodierung: Dunkelgruen (100%) bis Rot (10%)
+- Platzierung nach dem "Kilometer pro Tag"-Chart
+- Titel: "Reichweite nach Ladestand"
+- Untertitel: "Geschaetzte Reichweite (km) bei verschiedenen Ladestanden"
+- Legende mit den SOC-Stufen
+- Tooltip zeigt Datum und alle Reichweiten-Werte
 
-Die Performance soll auch bei großen Datenmengen nicht leiden.
+### Diagramm-Design
+
+```text
+Reichweite nach Ladestand
+Geschaetzte Reichweite (km) bei verschiedenen Ladestanden
+
+km
+400 |  ___100%___________
+350 |  ___90%____________
+300 |  ___80%____________
+250 |  ___70%____________
+200 |  ___60%____________
+150 |  ___50%____________
+    +----+----+----+----+----> Zeit
+    Jan  Feb  Mär  Apr
+```
+
+### Farben pro SOC-Stufe
+
+
+| Stufe | Farbe                            |
+| ----- | -------------------------------- |
+| 100%  | hsl(160, 70%, 45%) - Gruen       |
+| 90%   | hsl(140, 60%, 50%) - Hellgruen   |
+| 80%   | hsl(45, 80%, 55%) - Gelb         |
+| 70%   | hsl(30, 80%, 55%) - Orange       |
+| 60%   | hsl(15, 75%, 55%) - Dunkelorange |
+| 50%   | hsl(0, 70%, 55%) - Rot           |
+
 
 ### Dateien
 
-| Datei | Änderung |
-|-------|----------|
-| `src/lib/dataParser.ts` | Import hinzufügen, `filterData` um vollständigen Feldnamen erweitern |
-| `src/components/DataTable.tsx` | Import hinzufügen, `getRowSearchableText` um vollständigen Feldnamen erweitern |
 
+| Datei                           | Aenderung                                                                          |
+| ------------------------------- | ---------------------------------------------------------------------------------- |
+| `src/lib/dataParser.ts`         | Neue Funktion `getRangeBySOCOverTime`                                              |
+| `src/components/DataCharts.tsx` | Neues Diagramm mit `LineChart` und mehreren Linien, `visibleCharts`-Limit erhoehen |
+
+
+### Technische Details
+
+- **Zeitfenster fuer Paarung**: 5 Minuten max. Abstand zwischen SOC und Range
+- **Aggregation**: Woechentlich, um Rauschen zu glaetten
+- **SOC-Baender**: 5% Breite (z.B. 95-100% wird als "100%" dargestellt)
+- **Mindestanzahl**: Ein SOC-Band wird nur angezeigt, wenn mindestens 3 Datenpunkte vorhanden sind
+- **Progressive Loading**: Chart wird in den bestehenden `visibleCharts`-Mechanismus integriert
