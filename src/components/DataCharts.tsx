@@ -164,14 +164,7 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
     });
   }, [additionalNumericFields, data, useLinearTimeScale]);
 
-  const rangeBySOCData = useMemo(() => {
-    const raw = getRangeBySOCOverTime(data);
-    if (!useLinearTimeScale) {
-      // Use Date objects for categorical mode (same as other charts)
-      return raw.map(d => ({ ...d, timestamp: d.date }));
-    }
-    return raw;
-  }, [data, useLinearTimeScale]);
+  const rangeBySOCData = useMemo(() => getRangeBySOCOverTime(data), [data]);
 
   const SOC_LINE_CONFIG = [
     { key: 'soc100', label: '100%', color: 'hsl(160, 70%, 45%)' },
