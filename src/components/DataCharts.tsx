@@ -167,8 +167,12 @@ export function DataCharts({ data, selectedFields = [], useLinearTimeScale = fal
   const rangeBySOCData = useMemo(() => getRangeBySOCOverTime(data), [data]);
 
   const SOC_LINE_CONFIG = [
-    { key: 'soc100', label: '100%', color: 'hsl(160, 70%, 45%)' },
-    { key: 'soc90', label: '90%', color: 'hsl(140, 60%, 50%)' },
+    { key: 'soc100', label: '100%', color: 'hsl(120, 70%, 40%)' },
+    { key: 'soc80',  label: '80%',  color: 'hsl(90, 65%, 45%)' },
+    { key: 'soc60',  label: '60%',  color: 'hsl(60, 70%, 45%)' },
+    { key: 'soc40',  label: '40%',  color: 'hsl(30, 75%, 50%)' },
+    { key: 'soc20',  label: '20%',  color: 'hsl(0, 70%, 50%)' },
+  ];
     { key: 'soc80', label: '80%', color: 'hsl(45, 80%, 55%)' },
     { key: 'soc70', label: '70%', color: 'hsl(30, 80%, 55%)' },
     { key: 'soc60', label: '60%', color: 'hsl(15, 75%, 55%)' },

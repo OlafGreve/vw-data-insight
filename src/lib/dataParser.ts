@@ -116,18 +116,13 @@ export interface RangeBySOCPoint {
   timestamp: number;
   date: Date;
   soc100?: number;
-  soc90?: number;
   soc80?: number;
-  soc70?: number;
   soc60?: number;
-  soc50?: number;
   soc40?: number;
-  soc30?: number;
   soc20?: number;
-  soc10?: number;
 }
 
-const SOC_LEVELS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10] as const;
+const SOC_LEVELS = [100, 80, 60, 40, 20] as const;
 const SOC_KEYS = SOC_LEVELS.map(l => `soc${l}` as keyof RangeBySOCPoint);
 
 /**
